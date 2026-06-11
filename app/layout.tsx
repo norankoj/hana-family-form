@@ -35,14 +35,12 @@ export default function RootLayout({
           </header>
 
           {/* 컨텐츠 */}
-          <main className="flex-1 max-w-lg mx-auto w-full px-4 py-6">
+          <main className="flex-1 max-w-lg mx-auto w-full px-5 py-6">
             {children}
           </main>
 
           {/* 푸터 */}
-          <footer className="max-w-lg mx-auto w-full px-4 py-6 text-center text-xs text-slate-400">
-            <p>7월 25일(토) ~ 26일(일)</p>
-          </footer>
+          <footer className="max-w-lg mx-auto w-full px-4 py-4" />
         </div>
       </body>
     </html>
