@@ -1,0 +1,55 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-slate-50 text-slate-800 antialiased;
+  }
+}
+
+@layer components {
+  .form-input {
+    @apply w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-base
+           placeholder-slate-400 outline-none transition-all
+           focus:border-blue-500 focus:ring-2 focus:ring-blue-100
+           disabled:bg-slate-100 disabled:text-slate-400;
+  }
+
+  .form-select {
+    @apply form-input cursor-pointer appearance-none pr-10;
+  }
+
+  .step-card {
+    @apply rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-100;
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+}
+
+/* 스텝 전환 애니메이션 */
+.step-enter {
+  opacity: 0;
+  transform: translateX(24px);
+}
+.step-enter-active {
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+.step-exit {
+  opacity: 1;
+  transform: translateX(0);
+}
+.step-exit-active {
+  opacity: 0;
+  transform: translateX(-24px);
+  transition: opacity 200ms ease, transform 200ms ease;
+}
