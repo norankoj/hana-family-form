@@ -160,6 +160,11 @@ function CompanionCard({
             해당 부서는 숙박이 기본 포함됩니다.
           </div>
         )}
+        {!isLodgingFixed && dept === 'ADULT_A' && (
+          <div className="mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-600">
+            해당 부서는 비숙박이 기본입니다.
+          </div>
+        )}
         <ToggleGroup
           cols={2}
           value={companion.lodging}

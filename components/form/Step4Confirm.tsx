@@ -47,22 +47,76 @@ export default function Step4Confirm({ formState, onBack, onSubmit, onRestart }:
 
   if (done) {
     return (
-      <div className="flex flex-col gap-6 py-8">
-        {/* 아이콘 + 제목은 가운데 */}
+      <div className="flex flex-col gap-6 py-4">
+        {/* 아이콘 + 제목 */}
         <div className="flex flex-col items-center gap-4 text-center">
           <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 text-5xl">
             ✅
           </div>
-          <h2 className="text-xl font-bold text-slate-800">하나가족수양회 신청이 완료되었습니다.</h2>
+          <div>
+            <h2 className="text-xl font-bold text-slate-800">신청이 완료되었습니다!</h2>
+            <p className="mt-1 text-sm text-slate-500">2026 하나가족수양회</p>
+          </div>
         </div>
-        {/* 안내 문구는 좌측 정렬 */}
-        <div className="text-sm text-slate-500 leading-relaxed flex flex-col gap-3">
-          <p>신청서 내용과 관련하여 확인이 필요한 경우에는 수양회 등록팀에서 연락을 드릴 수 있으니 참고하시기 바랍니다.</p>
-          <p>주님의 은혜가 가득한 2026 하나가족 수양회가 되도록 함께 중보해주십시오. 감사합니다.</p>
+
+        {/* 신청 내용 요약 */}
+        <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+          <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
+            <p className="text-sm font-bold text-slate-700">
+              {formState.applicationType === 'GROUP' ? '대표자 정보' : '신청자 정보'}
+            </p>
+          </div>
+          <div className="px-4 py-4 grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm">
+            <span className="text-slate-400">이름</span>
+            <span className="font-semibold text-slate-800">{rep.name}</span>
+            <span className="text-slate-400">연락처</span>
+            <span className="font-semibold text-slate-800">{rep.phone}</span>
+            <span className="text-slate-400">소속</span>
+            <span className="font-semibold text-slate-800">{rep.department}</span>
+            {rep.cellGroup && (
+              <>
+                <span className="text-slate-400">셀 번호</span>
+                <span className="font-semibold text-slate-800">{rep.cellGroup}</span>
+              </>
+            )}
+            <span className="text-slate-400">등록 유형</span>
+            <span className="font-semibold text-slate-800">
+              {REG_TYPE_KO[rep.registrationType]}
+              {rep.registrationType === 'DAILY' && rep.dailyDate && ` (${rep.dailyDate.slice(5)})`}
+            </span>
+            <span className="text-slate-400">숙박</span>
+            <span className="font-semibold text-slate-800">
+              {rep.lodging === 'LODGING' ? '숙박 (1박 2일)' : '비숙박 (당일 귀가)'}
+              {rep.wantsFamilyRoom && ' · 가족실 희망'}
+            </span>
+          </div>
+
+          {/* 일행 목록 (단체) */}
+          {formState.applicationType === 'GROUP' && formState.companions.length > 0 && (
+            <>
+              <div className="border-t border-slate-100 bg-slate-50 px-4 py-3">
+                <p className="text-sm font-bold text-slate-700">일행 ({formState.companions.length}명)</p>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {formState.companions.map((c, i) => (
+                  <div key={c.id} className="px-4 py-3 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                    <span className="text-slate-400">일행 {i + 1}</span>
+                    <span className="font-semibold text-slate-800">{c.name}</span>
+                    <span className="text-slate-400">소속</span>
+                    <span className="font-semibold text-slate-800">{c.department}</span>
+                    <span className="text-slate-400">숙박</span>
+                    <span className="font-semibold text-slate-800">
+                      {c.lodging === 'LODGING' ? '숙박' : '비숙박'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
 
         {/* 입금 안내 */}
-        <div className="w-full rounded-2xl bg-blue-50 border border-blue-100 p-5 text-left">
+        <div className="w-full rounded-2xl bg-blue-50 border border-blue-100 p-5">
           <p className="text-sm font-bold text-blue-800 mb-3">입금 안내</p>
           <div className="flex flex-col gap-2 text-sm">
             <div className="flex justify-between">
@@ -94,6 +148,16 @@ export default function Step4Confirm({ formState, onBack, onSubmit, onRestart }:
             <span> 단체 신청의 경우 <strong>대표자 이름</strong>으로 합산 입금해 주세요.</span>
           )}
         </InfoBox>
+
+        {/* 안내 문구 */}
+        <div className="rounded-2xl border border-slate-100 bg-slate-50 px-5 py-4 flex flex-col gap-3 text-sm text-slate-500 leading-relaxed">
+          <p>
+            📋 신청 내용과 관련하여 확인이 필요한 경우, <span className="font-medium text-slate-700">수양회 등록팀에서 연락드릴 수 있습니다.</span>
+          </p>
+          <p>
+            🙏 주님의 은혜가 가득한 2026 하나가족 수양회가 되도록 함께 중보해 주십시오. <span className="font-medium text-slate-700">감사합니다.</span>
+          </p>
+        </div>
 
         <button
           type="button"
