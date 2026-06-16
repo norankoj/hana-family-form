@@ -11,6 +11,7 @@ export interface AttendeeForm {
   dailyDate?: '2026-07-25' | '2026-07-26';
   lodging: LodgingType;
   isRepresentative: boolean;
+  isYoungUCM?: boolean; // UCM 중 2007년생 이하 → 다자녀 할인 자녀로 카운트
 }
 
 export interface RepresentativeForm {
@@ -22,6 +23,7 @@ export interface RepresentativeForm {
   dailyDate?: '2026-07-25' | '2026-07-26';
   lodging: LodgingType;
   wantsFamilyRoom: boolean;   // 가족실 희망 (숙박인 경우만)
+  isYoungUCM?: boolean;       // UCM 중 2007년생 이하 → 다자녀 할인 자녀로 카운트
 }
 
 export interface FormState {

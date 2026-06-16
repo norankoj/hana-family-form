@@ -314,7 +314,6 @@ export default function HomePage() {
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">다자녀 할인</p>
-                <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-500">13개월~07년생</span>
               </div>
               <div className="flex flex-col gap-2">
                 {[
@@ -328,6 +327,9 @@ export default function HomePage() {
                   </div>
                 ))}
               </div>
+              <p className="mt-2 text-xs text-slate-400">
+                * 자녀 기준: YCM(중고등)·초등·유치·영아부, <span className="font-medium text-slate-500">UCM 중 2007년생 이하</span> 포함
+              </p>
             </div>
             </div>
             )}

@@ -233,33 +233,43 @@ export default function Step2Info({
       )}
 
       {/* 숙박 여부 */}
-      <FieldGroup
-        label="숙박 여부"
-        hint={
-          isLodgingFixed ? "해당 부서는 숙박이 기본 포함됩니다." : undefined
-        }
-      >
-        {isLodgingFixed ? (
-          <div className="form-input bg-slate-50 text-slate-500 text-sm">
-            숙박 (기본 고정)
+      <FieldGroup label="숙박 여부">
+        {isLodgingFixed && (
+          <div className="mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-600">
+            해당 부서는 숙박이 기본 포함됩니다.
           </div>
-        ) : (
-          <ToggleGroup
-            cols={2}
-            value={value.lodging}
-            onChange={(v) => update("lodging", v)}
-            options={[
-              {
-                label: "비숙박",
-                value: "NON_LODGING",
-                description: "당일 귀가",
-              },
-              { label: "숙박", value: "LODGING", description: "1박 2일" },
-            ]}
-            disabled={value.registrationType === "DAILY"}
-          />
         )}
+        <ToggleGroup
+          cols={2}
+          value={value.lodging}
+          onChange={(v) => update("lodging", v)}
+          options={[
+            {
+              label: "비숙박",
+              value: "NON_LODGING",
+              description: "당일 귀가",
+            },
+            { label: "숙박", value: "LODGING", description: "1박 2일" },
+          ]}
+          disabled={value.registrationType === "DAILY"}
+        />
       </FieldGroup>
+
+      {/* UCM 2007년생 이하 체크 */}
+      {dept === 'ADULT_B' && value.department === '대학부(UCM)' && (
+        <label className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 cursor-pointer">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 accent-amber-500 shrink-0"
+            checked={!!value.isYoungUCM}
+            onChange={(e) => update('isYoungUCM', e.target.checked)}
+          />
+          <div>
+            <p className="text-sm font-semibold text-amber-800">2007년생 이하입니다</p>
+            <p className="text-xs text-amber-600 mt-0.5">체크 시 단체 신청 시 다자녀 할인 자녀 인원에 포함됩니다</p>
+          </div>
+        </label>
+      )}
 
       {/* 비숙박 할인 안내 */}
       {isNonLodgingDiscountEligible && value.registrationType !== "DAILY" && (

@@ -35,6 +35,9 @@ function toRows(formState: FormState): string[][] {
     rep.wantsFamilyRoom ? '희망' : '',                // L 가족실
     String(repItem?.subtotal ?? 0),                   // M 금액
     groupId,                                          // N 그룹ID
+    '',                                               // O 확정 (Apps Script 관리)
+    '',                                               // P 입금확인 (Apps Script 관리)
+    rep.isYoungUCM ? 'Y' : '',                        // Q UCM할인
   ]);
 
   // 일행 행
@@ -55,6 +58,9 @@ function toRows(formState: FormState): string[][] {
       '',                                             // 가족실 해당 없음
       String(item?.subtotal ?? 0),
       groupId,
+      '',                                             // O 확정
+      '',                                             // P 입금확인
+      c.isYoungUCM ? 'Y' : '',                        // Q UCM할인
     ]);
   });
 

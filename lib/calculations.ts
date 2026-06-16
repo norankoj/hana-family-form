@@ -25,7 +25,12 @@ function nonLodgingDiscount(): number {
 function multiChildRate(companions: AttendeeForm[]): number {
   const childCount = companions.filter((c) => {
     const code = deptCode(c.department as string);
-    return code && MULTI_CHILD_DISCOUNT.eligibleChildDepts.includes(code);
+    if (!code) return false;
+    // YCM 이하 부서는 기본 대상
+    if (MULTI_CHILD_DISCOUNT.eligibleChildDepts.includes(code)) return true;
+    // UCM(ADULT_B) 중 2007년생 이하 체크한 경우도 포함
+    if (code === 'ADULT_B' && c.isYoungUCM) return true;
+    return false;
   }).length;
 
   for (const tier of MULTI_CHILD_DISCOUNT.tiers) {
