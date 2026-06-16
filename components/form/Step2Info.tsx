@@ -261,7 +261,7 @@ export default function Step2Info({
       </FieldGroup>
 
       {/* UCM 2007년생 이하 체크 */}
-      {dept === 'ADULT_B' && (value.department as string) === '대학부(UCM)' && (
+      {applicationType === 'GROUP' && dept === 'ADULT_B' && (value.department as string) === '대학부(UCM)' && (
         <label className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 cursor-pointer">
           <input
             type="checkbox"
