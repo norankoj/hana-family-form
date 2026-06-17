@@ -387,10 +387,10 @@ export default function HomePage() {
                           비숙박
                         </span>
                         <p className="text-base font-bold text-slate-800">
-                          선등록 4.3만원
+                          선등록 4.5만원
                         </p>
                         <p className="text-xs text-slate-400 mt-0.5">
-                          일반 4.8만 · 현장 5.3만
+                          일반 5만 · 현장 5.5만
                         </p>
                       </div>
                       <div className="px-4 py-3 text-center">
