@@ -212,6 +212,33 @@ export default function Step4Confirm({ formState, onBack, onSubmit, onRestart }:
         </div>
       </div>
 
+      {/* 일행 정보 (단체) */}
+      {formState.applicationType === 'GROUP' && formState.companions.length > 0 && (
+        <div className="step-card flex flex-col gap-3">
+          <p className="text-sm font-bold text-slate-600">일행 정보 ({formState.companions.length}명)</p>
+          <div className="flex flex-col divide-y divide-slate-100">
+            {formState.companions.map((c, i) => (
+              <div key={c.id} className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm py-3 first:pt-0 last:pb-0">
+                <span className="text-slate-400 font-medium col-span-2 text-xs">일행 {i + 1}</span>
+                <span className="text-slate-500">이름</span>
+                <span className="font-medium text-slate-800">{c.name}</span>
+                <span className="text-slate-500">소속</span>
+                <span className="font-medium text-slate-800">{c.department}</span>
+                <span className="text-slate-500">등록 유형</span>
+                <span className="font-medium text-slate-800">
+                  {REG_TYPE_KO[c.registrationType]}
+                  {c.registrationType === 'DAILY' && c.dailyDate && ` (${c.dailyDate.slice(5)})`}
+                </span>
+                <span className="text-slate-500">숙박</span>
+                <span className="font-medium text-slate-800">
+                  {c.lodging === 'LODGING' ? '숙박' : '비숙박'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* 금액 내역 */}
       <div className="step-card flex flex-col gap-3">
         <p className="text-sm font-bold text-slate-600">금액 내역</p>
