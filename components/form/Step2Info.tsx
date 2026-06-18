@@ -119,6 +119,7 @@ export default function Step2Info({
         <input
           className="form-input"
           type="text"
+          autoComplete="name"
           placeholder="홍길동"
           value={value.name}
           onChange={(e) => update("name", e.target.value)}
@@ -135,6 +136,7 @@ export default function Step2Info({
           className="form-input"
           type="tel"
           inputMode="numeric"
+          autoComplete="tel"
           placeholder="010-0000-0000"
           value={value.phone}
           onChange={(e) => update("phone", formatPhone(e.target.value))}
@@ -180,7 +182,7 @@ export default function Step2Info({
       {/* 등록 유형 */}
       <FieldGroup label="등록 유형">
         <ToggleGroup
-          cols={3}
+          cols={2}
           value={value.registrationType}
           onChange={(v) => {
             onChange({
@@ -205,6 +207,12 @@ export default function Step2Info({
               value: "REGULAR",
               description: "07.16~07.24",
               disabled: autoRegType !== "REGULAR",
+            },
+            {
+              label: "현장등록",
+              value: "ONSITE",
+              description: "07.25~",
+              disabled: autoRegType !== "ONSITE",
             },
             { label: "일일등록", value: "DAILY", description: "당일 참석만" },
           ]}

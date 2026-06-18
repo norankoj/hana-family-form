@@ -119,7 +119,7 @@ function CompanionCard({
       {/* 등록 유형 */}
       <FieldGroup label="등록 유형">
         <ToggleGroup
-          cols={3}
+          cols={2}
           value={companion.registrationType}
           onChange={(v) => {
             onChange({
@@ -132,6 +132,7 @@ function CompanionCard({
           options={[
             { label: '선등록',  value: 'EARLY',   description: '~ 07.15',     disabled: autoRegType !== 'EARLY' },
             { label: '일반등록', value: 'REGULAR', description: '07.16~07.24', disabled: autoRegType !== 'REGULAR' },
+            { label: '현장등록', value: 'ONSITE',  description: '07.25~',      disabled: autoRegType !== 'ONSITE' },
             { label: '일일등록', value: 'DAILY',   description: '당일 참석만' },
           ]}
         />

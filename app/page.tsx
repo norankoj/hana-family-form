@@ -55,6 +55,7 @@ export default function HomePage() {
   const [direction, setDirection] = useState<"forward" | "back">("forward");
   const [feeOpen, setFeeOpen] = useState(false);
   const [groupCount, setGroupCount] = useState<number | null>(null);
+  const [hp, setHp] = useState(""); // 허니팟 (봇 차단용 숨은 필드)
 
   const appType = formState.applicationType;
   const stepLabels = getStepLabels(appType);
@@ -116,9 +117,18 @@ export default function HomePage() {
     const res = await fetch("/api/submit", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(formState),
+      body: JSON.stringify({ ...formState, _hp: hp }),
     });
-    if (!res.ok) throw new Error("제출 실패");
+    if (!res.ok) {
+      let msg = "신청 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
+      try {
+        const data = await res.json();
+        if (data?.error) msg = data.error;
+      } catch {
+        /* ignore */
+      }
+      throw new Error(msg);
+    }
   }
 
   function handleRestart() {
@@ -132,6 +142,18 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* 허니팟 — 사람에겐 안 보이고 봇만 채우는 필드 */}
+      <input
+        type="text"
+        name="website"
+        tabIndex={-1}
+        autoComplete="off"
+        aria-hidden="true"
+        value={hp}
+        onChange={(e) => setHp(e.target.value)}
+        style={{ position: "absolute", left: "-9999px", width: 1, height: 1, opacity: 0 }}
+      />
+
       {/* 수양회 정보 배너 */}
       {step === 1 && phase === "landing" && (
         <>

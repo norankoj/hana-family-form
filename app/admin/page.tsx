@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 
 // ── 타입 ────────────────────────────────────────────────────────────────────
 interface Row {
@@ -24,8 +24,45 @@ interface Group {
   groupId:        string;
   type:           string;
   rows:           Row[];
+  rep:            Row;
+  total:          number;
+  wantsFamilyRoom:boolean;
   confirmed:      boolean;
   paid:           boolean;
+  신청일시:        string;
+}
+
+// ── 유틸 ────────────────────────────────────────────────────────────────────
+function krw(n: number) {
+  return n.toLocaleString('ko-KR') + '원';
+}
+
+// 헤더로 비밀번호 전송 (URL 노출 방지)
+function authHeaders(password: string): HeadersInit {
+  return { 'x-admin-password': password };
+}
+
+function buildGroups(rows: Row[], confirmed: Set<string>, paid: Set<string>): Group[] {
+  const map = new Map<string, Row[]>();
+  rows.forEach((r) => {
+    const key = r.groupId || r.이름;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(r);
+  });
+  return Array.from(map.entries()).map(([id, rs]) => {
+    const rep = rs.find((r) => r.구분 === '대표자') ?? rs[0];
+    return {
+      groupId:   id,
+      type:      rs[0].신청유형,
+      rows:      rs,
+      rep,
+      total:     rs.reduce((s, r) => s + Number(r.금액 || 0), 0),
+      wantsFamilyRoom: rs.some((r) => r.가족실 === '희망'),
+      confirmed: confirmed.has(id),
+      paid:      paid.has(id),
+      신청일시:   rep.신청일시,
+    };
+  });
 }
 
 // ── 부서 통계 맵 ──────────────────────────────────────────────────────────
@@ -59,7 +96,7 @@ function LoginScreen({ onLogin }: { onLogin: (pw: string) => void }) {
     setErr('');
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/data?password=${encodeURIComponent(pw)}`);
+      const res = await fetch('/api/admin/data', { headers: authHeaders(pw) });
       if (res.status === 401) { setErr('비밀번호가 틀렸습니다.'); return; }
       if (!res.ok)             { setErr('서버 오류가 발생했습니다.'); return; }
       onLogin(pw);
@@ -72,8 +109,7 @@ function LoginScreen({ onLogin }: { onLogin: (pw: string) => void }) {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 px-5">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <span className="text-3xl">🔐</span>
-          <h1 className="mt-3 text-xl font-bold text-slate-900">관리자 페이지</h1>
+          <h1 className="text-xl font-bold text-slate-900">관리자 페이지</h1>
           <p className="mt-1 text-sm text-slate-400">2026 하나가족수양회</p>
         </div>
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
@@ -82,14 +118,14 @@ function LoginScreen({ onLogin }: { onLogin: (pw: string) => void }) {
             value={pw}
             onChange={(e) => setPw(e.target.value)}
             placeholder="비밀번호 입력"
-            className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-blue-400 focus:outline-none"
+            className="w-full rounded-sm border border-slate-300 px-4 py-3 text-sm focus:border-blue-500 focus:outline-none"
             autoFocus
           />
           {err && <p className="text-xs text-red-500">{err}</p>}
           <button
             type="submit"
             disabled={!pw || loading}
-            className="w-full rounded-xl bg-blue-600 py-3 text-sm font-bold text-white disabled:opacity-40 hover:bg-blue-700 transition-colors"
+            className="w-full rounded-lg bg-blue-600 py-3 text-sm font-bold text-white disabled:opacity-40 hover:bg-blue-700 transition-colors"
           >
             {loading ? '확인 중…' : '로그인'}
           </button>
@@ -99,92 +135,100 @@ function LoginScreen({ onLogin }: { onLogin: (pw: string) => void }) {
   );
 }
 
-// ── 통계 카드 ──────────────────────────────────────────────────────────────
-function StatCard({ label, value, sub, color = 'slate' }: {
-  label: string; value: number | string; sub?: string; color?: 'slate' | 'blue' | 'amber' | 'emerald';
+// ── KPI 카드 ─────────────────────────────────────────────────────────────
+function KpiCard({ label, value, unit, sub }: {
+  label: string; value: string | number; unit?: string; sub?: string;
 }) {
-  const colorMap = {
-    slate:   'bg-slate-50  text-slate-700',
-    blue:    'bg-blue-50   text-blue-700',
-    amber:   'bg-amber-50  text-amber-700',
-    emerald: 'bg-emerald-50 text-emerald-700',
-  };
   return (
-    <div className={`rounded-xl px-4 py-3 ${colorMap[color]}`}>
-      <p className="text-xs font-medium opacity-70">{label}</p>
-      <p className="mt-0.5 text-2xl font-bold">{value}<span className="text-sm font-normal ml-0.5">명</span></p>
-      {sub && <p className="text-xs opacity-60 mt-0.5">{sub}</p>}
+    <div className="rounded-sm bg-white border border-slate-200 px-5 py-4">
+      <p className="text-xs font-medium text-slate-400 mb-2">{label}</p>
+      <p className="text-3xl font-bold text-slate-900 leading-none">
+        {value}{unit && <span className="text-base font-semibold text-slate-400 ml-1">{unit}</span>}
+      </p>
+      {sub && <p className="text-xs text-slate-400 mt-1.5">{sub}</p>}
     </div>
+  );
+}
+
+// ── 진행률 바 ────────────────────────────────────────────────────────────
+function ProgressBar({ label, done, total }: { label: string; done: number; total: number }) {
+  const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-sm font-semibold text-slate-600">{label}</span>
+        <span className="text-sm font-bold text-blue-600">
+          {done}<span className="text-slate-300 font-normal"> / {total}</span>
+          <span className="ml-1.5 text-xs text-slate-400">({pct}%)</span>
+        </span>
+      </div>
+      <div className="h-2 w-full rounded-sm bg-slate-100 overflow-hidden">
+        <div className="h-full rounded-sm bg-blue-500 transition-all duration-500" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+// ── 상태 뱃지 ────────────────────────────────────────────────────────────
+function StatusBadge({ g }: { g: Group }) {
+  if (g.confirmed) return <span className="inline-flex items-center rounded-sm bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">확정 완료</span>;
+  if (g.paid)      return <span className="inline-flex items-center rounded-sm bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">입금 확인</span>;
+  return <span className="inline-flex items-center rounded-sm bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-500">신청 접수</span>;
+}
+
+function LodgeBadge({ value }: { value: string }) {
+  return (
+    <span className={`inline-block rounded-sm px-2 py-0.5 text-xs font-semibold ${value === '숙박' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>
+      {value}
+    </span>
   );
 }
 
 // ── 개인 신청 테이블 ──────────────────────────────────────────────────────
 function IndividualTable({ groups, password, onConfirm, onPaid }: {
-  groups: Group[];
-  password: string;
-  onConfirm: (groupId: string) => void;
-  onPaid: (groupId: string) => void;
+  groups: Group[]; password: string; onConfirm: (id: string) => void; onPaid: (id: string) => void;
 }) {
-  const individuals = groups.filter((g) => g.type === '개인');
-  if (individuals.length === 0) return <p className="text-sm text-slate-400 py-6 text-center">신청 내역이 없습니다.</p>;
+  if (groups.length === 0) return <p className="text-sm text-slate-400 py-6 text-center">신청 내역이 없습니다.</p>;
 
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm border-collapse">
         <thead>
           <tr className="bg-slate-50 text-xs text-slate-500">
-            <th className="border border-slate-200 px-3 py-2 text-left whitespace-nowrap">이름</th>
-            <th className="border border-slate-200 px-3 py-2 whitespace-nowrap">연락처</th>
-            <th className="border border-slate-200 px-3 py-2 whitespace-nowrap">소속</th>
-            <th className="border border-slate-200 px-3 py-2 whitespace-nowrap">셀번호</th>
-            <th className="border border-slate-200 px-3 py-2 whitespace-nowrap">등록유형</th>
-            <th className="border border-slate-200 px-3 py-2 whitespace-nowrap">숙박</th>
-            <th className="border border-slate-200 px-3 py-2 whitespace-nowrap">가족실</th>
-            <th className="border border-slate-200 px-3 py-2 whitespace-nowrap">금액</th>
-            <th className="border border-slate-200 px-3 py-2 whitespace-nowrap">신청일시</th>
-            <th className="border border-slate-200 px-3 py-2 whitespace-nowrap">입금확인</th>
-            <th className="border border-slate-200 px-3 py-2 whitespace-nowrap">확정</th>
+            <th className="border-b border-slate-200 px-3 py-2.5 text-left whitespace-nowrap">상태</th>
+            <th className="border-b border-slate-200 px-3 py-2.5 text-left whitespace-nowrap">이름</th>
+            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">연락처</th>
+            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">소속</th>
+            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">셀번호</th>
+            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">등록유형</th>
+            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">숙박</th>
+            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap text-right">금액</th>
+            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">신청일시</th>
+            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">입금확인</th>
+            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">확정</th>
           </tr>
         </thead>
         <tbody>
-          {individuals.map((g) => {
-            const rep = g.rows[0];
+          {groups.map((g) => {
+            const rep = g.rep;
             return (
-              <tr key={g.groupId} className={g.confirmed ? 'bg-emerald-50' : 'bg-white hover:bg-slate-50'}>
-                <td className="border border-slate-200 px-3 py-2 font-medium">{rep.이름}</td>
-                <td className="border border-slate-200 px-3 py-2 text-center whitespace-nowrap">{rep.연락처}</td>
-                <td className="border border-slate-200 px-3 py-2 text-center whitespace-nowrap">{rep.소속}</td>
-                <td className="border border-slate-200 px-3 py-2 text-center">{rep.셀번호}</td>
-                <td className="border border-slate-200 px-3 py-2 text-center whitespace-nowrap">{rep.등록유형}</td>
-                <td className="border border-slate-200 px-3 py-2 text-center">
-                  <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${rep.숙박 === '숙박' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
-                    {rep.숙박}
-                  </span>
+              <tr key={g.groupId} className={`${g.confirmed ? 'bg-emerald-50/40' : 'bg-white hover:bg-slate-50'} border-b border-slate-100`}>
+                <td className="px-3 py-2.5"><StatusBadge g={g} /></td>
+                <td className="px-3 py-2.5 font-semibold text-slate-800">{rep.이름}</td>
+                <td className="px-3 py-2.5 text-center whitespace-nowrap text-slate-600">{rep.연락처}</td>
+                <td className="px-3 py-2.5 text-center whitespace-nowrap text-slate-600">{rep.소속}</td>
+                <td className="px-3 py-2.5 text-center text-slate-500">{rep.셀번호 || '—'}</td>
+                <td className="px-3 py-2.5 text-center whitespace-nowrap text-slate-600">{rep.등록유형}</td>
+                <td className="px-3 py-2.5 text-center"><LodgeBadge value={rep.숙박} /></td>
+                <td className="px-3 py-2.5 text-right font-bold text-slate-800 whitespace-nowrap">{krw(g.total)}</td>
+                <td className="px-3 py-2.5 text-center text-xs text-slate-400 whitespace-nowrap">{rep.신청일시}</td>
+                <td className="px-3 py-2.5 text-center">
+                  {g.paid ? <span className="text-emerald-600 font-bold text-xs">✓ 확인</span>
+                          : <PaymentButton groupId={g.groupId} password={password} onPaid={onPaid} />}
                 </td>
-                <td className="border border-slate-200 px-3 py-2 text-center">
-                  {rep.가족실 === '희망' ? (
-                    <span className="inline-block rounded-full px-2 py-0.5 text-xs font-semibold bg-purple-100 text-purple-700">희망</span>
-                  ) : (
-                    <span className="text-slate-300 text-xs">—</span>
-                  )}
-                </td>
-                <td className="border border-slate-200 px-3 py-2 text-right font-semibold whitespace-nowrap">
-                  {Number(rep.금액).toLocaleString()}원
-                </td>
-                <td className="border border-slate-200 px-3 py-2 text-center text-xs text-slate-400 whitespace-nowrap">{rep.신청일시}</td>
-                <td className="border border-slate-200 px-3 py-2 text-center">
-                  {g.paid ? (
-                    <span className="text-emerald-600 font-bold text-xs">✓ 확인</span>
-                  ) : (
-                    <PaymentButton groupId={g.groupId} password={password} onPaid={onPaid} />
-                  )}
-                </td>
-                <td className="border border-slate-200 px-3 py-2 text-center">
-                  {g.confirmed ? (
-                    <span className="text-blue-600 font-bold text-xs">✓ 확정</span>
-                  ) : (
-                    <ConfirmButton groupId={g.groupId} password={password} onConfirm={onConfirm} />
-                  )}
+                <td className="px-3 py-2.5 text-center">
+                  {g.confirmed ? <span className="text-blue-600 font-bold text-xs">✓ 확정</span>
+                               : <ConfirmButton groupId={g.groupId} password={password} onConfirm={onConfirm} />}
                 </td>
               </tr>
             );
@@ -195,105 +239,164 @@ function IndividualTable({ groups, password, onConfirm, onPaid }: {
   );
 }
 
-// ── 단체 신청 테이블 ──────────────────────────────────────────────────────
-function GroupTable({ groups, password, onConfirm, onPaid }: {
-  groups: Group[];
-  password: string;
-  onConfirm: (groupId: string) => void;
-  onPaid: (groupId: string) => void;
+// ── 단체 신청 카드 ──────────────────────────────────────────────────────
+function GroupCard({ g, password, onConfirm, onPaid }: {
+  g: Group; password: string; onConfirm: (id: string) => void; onPaid: (id: string) => void;
 }) {
-  const groupOnes = groups.filter((g) => g.type === '단체');
-  if (groupOnes.length === 0) return <p className="text-sm text-slate-400 py-6 text-center">신청 내역이 없습니다.</p>;
-
+  const [open, setOpen] = useState(false);
   return (
-    <div className="flex flex-col gap-4">
-      {groupOnes.map((g) => {
-        const rep   = g.rows.find((r) => r.구분 === '대표자') ?? g.rows[0];
-        const total = g.rows.reduce((s, r) => s + Number(r.금액 || 0), 0);
-        return (
-          <div key={g.groupId} className={`rounded-xl border overflow-hidden ${g.confirmed ? 'border-emerald-300' : 'border-slate-200'}`}>
-            {/* 그룹 헤더 */}
-            <div className={`flex items-center justify-between px-4 py-3 ${g.confirmed ? 'bg-emerald-50' : 'bg-slate-50'}`}>
-              <div className="flex items-center gap-3 flex-wrap">
-                <span className="text-xs font-mono text-slate-400">{g.groupId}</span>
-                <span className="font-bold text-slate-900">{rep.이름} 외 {g.rows.length - 1}명</span>
-                {rep.가족실 === '희망' && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-semibold text-purple-700">
-                    🛏 가족실 희망
-                  </span>
-                )}
-                <span className="text-xs text-slate-500">{rep.신청일시}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-blue-700 mr-1">{total.toLocaleString()}원</span>
-                {g.paid ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-bold text-emerald-700">✓ 입금</span>
-                ) : (
-                  <PaymentButton groupId={g.groupId} password={password} onPaid={onPaid} />
-                )}
-                {g.confirmed ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-bold text-blue-700">✓ 확정</span>
-                ) : (
-                  <ConfirmButton groupId={g.groupId} password={password} onConfirm={onConfirm} />
-                )}
-              </div>
-            </div>
-            {/* 멤버 목록 */}
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="text-xs text-slate-400 bg-white border-b border-slate-100">
-                  <th className="px-4 py-1.5 text-left">구분</th>
-                  <th className="px-4 py-1.5 text-left">이름</th>
-                  <th className="px-4 py-1.5">소속</th>
-                  <th className="px-4 py-1.5">등록유형</th>
-                  <th className="px-4 py-1.5">숙박</th>
-                  <th className="px-4 py-1.5">가족실</th>
-                  <th className="px-4 py-1.5 text-right">금액</th>
-                </tr>
-              </thead>
-              <tbody>
-                {g.rows.map((row, i) => (
-                  <tr key={i} className="border-t border-slate-100 hover:bg-slate-50">
-                    <td className="px-4 py-2">
-                      <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${row.구분 === '대표자' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
-                        {row.구분}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 font-medium">{row.이름}</td>
-                    <td className="px-4 py-2 text-center text-slate-600 whitespace-nowrap">{row.소속}</td>
-                    <td className="px-4 py-2 text-center text-slate-600 whitespace-nowrap">{row.등록유형}</td>
-                    <td className="px-4 py-2 text-center">
-                      <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${row.숙박 === '숙박' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'}`}>
-                        {row.숙박}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 text-center">
-                      {row.가족실 === '희망' ? (
-                        <span className="inline-block rounded-full px-2 py-0.5 text-xs font-semibold bg-purple-100 text-purple-700">희망</span>
-                      ) : (
-                        <span className="text-slate-300 text-xs">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2 text-right font-semibold">{Number(row.금액).toLocaleString()}원</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        );
-      })}
+    <div className={`rounded-sm border ${g.confirmed ? 'border-emerald-200' : 'border-slate-200'}`}>
+      {/* 그룹 헤더 */}
+      <div className={`flex items-center justify-between gap-3 px-4 py-3 ${g.confirmed ? 'bg-emerald-50/60' : 'bg-slate-50'}`}>
+        <button type="button" onClick={() => setOpen((v) => !v)} className="flex items-center gap-3 flex-wrap text-left min-w-0">
+          <svg className={`h-4 w-4 text-slate-400 shrink-0 transition-transform ${open ? 'rotate-90' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
+          <StatusBadge g={g} />
+          <span className="font-bold text-slate-900">{g.rep.이름} <span className="font-normal text-slate-400">외 {g.rows.length - 1}명</span></span>
+          {g.wantsFamilyRoom && (
+            <span className="inline-flex items-center rounded-sm border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">🛏 가족실</span>
+          )}
+          <span className="text-xs text-slate-400">{g.rep.연락처}</span>
+        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="font-bold text-slate-800 mr-1 whitespace-nowrap">{krw(g.total)}</span>
+          {g.paid ? <span className="inline-flex items-center rounded-sm bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">✓ 입금</span>
+                  : <PaymentButton groupId={g.groupId} password={password} onPaid={onPaid} />}
+          {g.confirmed ? <span className="inline-flex items-center rounded-sm bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">✓ 확정</span>
+                       : <ConfirmButton groupId={g.groupId} password={password} onConfirm={onConfirm} />}
+        </div>
+      </div>
+      {/* 멤버 목록 */}
+      {open && (
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="text-xs text-slate-400 bg-white border-b border-slate-100">
+              <th className="px-4 py-1.5 text-left">구분</th>
+              <th className="px-4 py-1.5 text-left">이름</th>
+              <th className="px-4 py-1.5">소속</th>
+              <th className="px-4 py-1.5">등록유형</th>
+              <th className="px-4 py-1.5">숙박</th>
+              <th className="px-4 py-1.5 text-right">금액</th>
+            </tr>
+          </thead>
+          <tbody>
+            {g.rows.map((row, i) => (
+              <tr key={i} className="border-t border-slate-100">
+                <td className="px-4 py-2">
+                  <span className={`inline-block rounded-sm px-2 py-0.5 text-xs font-semibold ${row.구분 === '대표자' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>{row.구분}</span>
+                </td>
+                <td className="px-4 py-2 font-medium text-slate-800">{row.이름}</td>
+                <td className="px-4 py-2 text-center text-slate-600 whitespace-nowrap">{row.소속}</td>
+                <td className="px-4 py-2 text-center text-slate-600 whitespace-nowrap">{row.등록유형}</td>
+                <td className="px-4 py-2 text-center"><LodgeBadge value={row.숙박} /></td>
+                <td className="px-4 py-2 text-right font-semibold text-slate-700">{krw(Number(row.금액 || 0))}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+function GroupTable({ groups, password, onConfirm, onPaid }: {
+  groups: Group[]; password: string; onConfirm: (id: string) => void; onPaid: (id: string) => void;
+}) {
+  if (groups.length === 0) return <p className="text-sm text-slate-400 py-6 text-center">신청 내역이 없습니다.</p>;
+  return (
+    <div className="flex flex-col gap-3">
+      {groups.map((g) => <GroupCard key={g.groupId} g={g} password={password} onConfirm={onConfirm} onPaid={onPaid} />)}
+    </div>
+  );
+}
+
+// ── 가족실 현황 ──────────────────────────────────────────────────────────
+function FamilyRoomBoard({ groups }: { groups: Group[] }) {
+  const rooms = groups.filter((g) => g.wantsFamilyRoom);
+  if (rooms.length === 0) return <p className="text-sm text-slate-400 py-6 text-center">가족실을 희망한 신청이 없습니다.</p>;
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm border-collapse">
+        <thead>
+          <tr className="bg-slate-50 text-xs text-slate-500">
+            <th className="border-b border-slate-200 px-3 py-2.5 text-left whitespace-nowrap">대표자</th>
+            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">연락처</th>
+            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">인원</th>
+            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">숙박 인원</th>
+            <th className="border-b border-slate-200 px-3 py-2.5 text-left whitespace-nowrap">구성원</th>
+            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">상태</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rooms.map((g) => {
+            const lodgingCnt = g.rows.filter((r) => r.숙박 === '숙박').length;
+            return (
+              <tr key={g.groupId} className="border-b border-slate-100 hover:bg-slate-50">
+                <td className="px-3 py-2.5 font-semibold text-slate-800 whitespace-nowrap">{g.rep.이름}</td>
+                <td className="px-3 py-2.5 text-center text-slate-600 whitespace-nowrap">{g.rep.연락처}</td>
+                <td className="px-3 py-2.5 text-center font-bold text-blue-700">{g.rows.length}명</td>
+                <td className="px-3 py-2.5 text-center text-slate-600">{lodgingCnt}명</td>
+                <td className="px-3 py-2.5 text-slate-600 text-xs">{g.rows.map((r) => r.이름).join(', ')}</td>
+                <td className="px-3 py-2.5 text-center"><StatusBadge g={g} /></td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ── 부서별 명단 (드릴다운) ───────────────────────────────────────────────
+function DeptMemberTable({ groups, match }: { groups: Group[]; match: (d: string) => boolean }) {
+  const members = groups.flatMap((g) =>
+    g.rows.filter((r) => match(r.소속)).map((r) => ({ r, g })),
+  );
+  if (members.length === 0) return <p className="text-sm text-slate-400 py-6 text-center">해당 부서 신청 인원이 없습니다.</p>;
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm border-collapse">
+        <thead>
+          <tr className="bg-slate-50 text-xs text-slate-500">
+            <th className="border-b border-slate-200 px-3 py-2.5 text-left whitespace-nowrap">이름</th>
+            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">소속</th>
+            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">셀번호</th>
+            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">구분</th>
+            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">등록유형</th>
+            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">숙박</th>
+            <th className="border-b border-slate-200 px-3 py-2.5 text-left whitespace-nowrap">소속 신청(대표자)</th>
+            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">상태</th>
+          </tr>
+        </thead>
+        <tbody>
+          {members.map(({ r, g }, i) => (
+            <tr key={i} className="border-b border-slate-100 hover:bg-slate-50">
+              <td className="px-3 py-2.5 font-semibold text-slate-800 whitespace-nowrap">{r.이름}</td>
+              <td className="px-3 py-2.5 text-center text-slate-600 whitespace-nowrap">{r.소속}</td>
+              <td className="px-3 py-2.5 text-center text-slate-500">{r.셀번호 || '—'}</td>
+              <td className="px-3 py-2.5 text-center">
+                <span className={`inline-block rounded-sm px-2 py-0.5 text-xs font-semibold ${g.type === '개인' ? 'bg-slate-100 text-slate-500' : r.구분 === '대표자' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>
+                  {g.type === '개인' ? '개인' : r.구분}
+                </span>
+              </td>
+              <td className="px-3 py-2.5 text-center text-slate-600 whitespace-nowrap">{r.등록유형}</td>
+              <td className="px-3 py-2.5 text-center"><LodgeBadge value={r.숙박} /></td>
+              <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">{g.type === '개인' ? '—' : g.rep.이름}</td>
+              <td className="px-3 py-2.5 text-center"><StatusBadge g={g} /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
 
 // ── 확정 버튼 ──────────────────────────────────────────────────────────────
 function ConfirmButton({ groupId, password, onConfirm }: {
-  groupId: string;
-  password: string;
-  onConfirm: (id: string) => void;
+  groupId: string; password: string; onConfirm: (id: string) => void;
 }) {
   const [loading, setLoading] = useState(false);
-
   async function handleClick() {
     if (!confirm('이 신청을 확정하시겠습니까?\n(카카오톡 알림이 발송됩니다)')) return;
     setLoading(true);
@@ -305,18 +408,11 @@ function ConfirmButton({ groupId, password, onConfirm }: {
       });
       if (res.ok) onConfirm(groupId);
       else alert('확정 처리 중 오류가 발생했습니다.');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }
-
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      disabled={loading}
-      className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50 transition-colors whitespace-nowrap"
-    >
+    <button type="button" onClick={handleClick} disabled={loading}
+      className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-blue-700 disabled:opacity-50 transition-colors whitespace-nowrap">
       {loading ? '처리중…' : '확정'}
     </button>
   );
@@ -324,12 +420,9 @@ function ConfirmButton({ groupId, password, onConfirm }: {
 
 // ── 입금확인 버튼 ──────────────────────────────────────────────────────────
 function PaymentButton({ groupId, password, onPaid }: {
-  groupId: string;
-  password: string;
-  onPaid: (id: string) => void;
+  groupId: string; password: string; onPaid: (id: string) => void;
 }) {
   const [loading, setLoading] = useState(false);
-
   async function handleClick() {
     if (!confirm('입금을 확인하셨나요?')) return;
     setLoading(true);
@@ -341,227 +434,248 @@ function PaymentButton({ groupId, password, onPaid }: {
       });
       if (res.ok) onPaid(groupId);
       else alert('처리 중 오류가 발생했습니다.');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }
-
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      disabled={loading}
-      className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-bold text-white hover:bg-emerald-600 disabled:opacity-50 transition-colors whitespace-nowrap"
-    >
+    <button type="button" onClick={handleClick} disabled={loading}
+      className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition-colors whitespace-nowrap">
       {loading ? '처리중…' : '입금확인'}
     </button>
   );
 }
 
+// ── CSV 내보내기 ──────────────────────────────────────────────────────────
+function exportCsv(rows: Row[]) {
+  const headers = ['신청번호','신청일시','신청유형','구분','이름','연락처','소속','셀번호','등록유형','참석날짜','숙박','가족실','금액','확정','입금확인'];
+  const esc = (v: string) => `"${(v ?? '').replace(/"/g, '""')}"`;
+  const lines = rows.map((r) => [
+    r.groupId, r.신청일시, r.신청유형, r.구분, r.이름, r.연락처, r.소속, r.셀번호,
+    r.등록유형, r.참석날짜, r.숙박, r.가족실, r.금액, r.확정, r.입금확인,
+  ].map(esc).join(','));
+  const csv = '﻿' + [headers.join(','), ...lines].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `하나가족수양회_신청현황_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // ── 메인 대시보드 ──────────────────────────────────────────────────────────
+type Tab = 'all' | 'individual' | 'group' | 'family';
+
 function Dashboard({ password, onLogout }: { password: string; onLogout: () => void }) {
-  const [rows, setRows]     = useState<Row[]>([]);
+  const [rows, setRows]       = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError]   = useState('');
-  const [tab, setTab]       = useState<'all' | 'individual' | 'group'>('all');
+  const [error, setError]     = useState('');
+  const [tab, setTab]         = useState<Tab>('all');
+  const [search, setSearch]   = useState('');
+  const [deptFilter, setDeptFilter] = useState<string | null>(null); // 부서별 드릴다운
   const [confirmed, setConfirmed] = useState<Set<string>>(new Set());
   const [paid, setPaid]           = useState<Set<string>>(new Set());
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`/api/admin/data?password=${encodeURIComponent(password)}`);
+      const res = await fetch('/api/admin/data', { headers: authHeaders(password) });
       const json = await res.json();
       if (!json.ok) { setError(json.error ?? '오류'); return; }
-      setRows(json.rows ?? []);
-      // 시트에서 확정된 항목 반영
-      const confirmedIds = new Set<string>(
-        json.rows.filter((r: Row) => r.확정 === '확정').map((r: Row) => r.groupId)
-      );
-      const paidIds = new Set<string>(
-        json.rows.filter((r: Row) => r.입금확인 === '확인').map((r: Row) => r.groupId)
-      );
-      setConfirmed(confirmedIds);
-      setPaid(paidIds);
+      const data: Row[] = json.rows ?? [];
+      setRows(data);
+      setConfirmed(new Set(data.filter((r) => r.확정 === '확정').map((r) => r.groupId)));
+      setPaid(new Set(data.filter((r) => r.입금확인 === '확인').map((r) => r.groupId)));
     } catch {
       setError('데이터를 불러오지 못했습니다.');
     } finally {
       setLoading(false);
     }
-  }
+  }, [password]);
 
-  // 첫 로드
-  useState(() => { load(); });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useMemo(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
-  // rows → groups
-  const groups: Group[] = useMemo(() => {
-    const map = new Map<string, Row[]>();
-    rows.forEach((r) => {
-      const key = r.groupId || r.이름;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(r);
-    });
-    return Array.from(map.entries()).map(([id, rs]) => ({
-      groupId:   id,
-      type:      rs[0].신청유형,
-      rows:      rs,
-      confirmed: confirmed.has(id),
-      paid:      paid.has(id),
-    }));
-  }, [rows, confirmed, paid]);
+  const groups = useMemo(() => buildGroups(rows, confirmed, paid), [rows, confirmed, paid]);
 
-  // 통계
-  const totalPeople  = rows.length;
-  const lodgingCount = rows.filter((r) => r.숙박 === '숙박').length;
-  const nonLodging   = totalPeople - lodgingCount;
-  const deptStats    = calcDeptStats(rows);
-  const confirmedCnt = groups.filter((g) => g.confirmed).length;
+  // ── 통계 ──
+  const totalPeople   = rows.length;
+  const lodgingCount  = rows.filter((r) => r.숙박 === '숙박').length;
+  const nonLodging    = totalPeople - lodgingCount;
+  const deptStats     = calcDeptStats(rows);
+  const totalGroups   = groups.length;
+  const confirmedCnt  = groups.filter((g) => g.confirmed).length;
+  const paidCnt       = groups.filter((g) => g.paid).length;
+  const familyRoomCnt = groups.filter((g) => g.wantsFamilyRoom).length;
+  const expectedTotal = rows.reduce((s, r) => s + Number(r.금액 || 0), 0);
+  const indivCnt      = groups.filter((g) => g.type === '개인').length;
+  const groupCnt      = groups.filter((g) => g.type === '단체').length;
 
-  function handleConfirm(groupId: string) {
-    setConfirmed((prev) => new Set([...prev, groupId]));
-  }
+  function handleConfirm(id: string) { setConfirmed((p) => new Set([...p, id])); }
+  function handlePaid(id: string)    { setPaid((p) => new Set([...p, id])); }
 
-  function handlePaid(groupId: string) {
-    setPaid((prev) => new Set([...prev, groupId]));
-  }
+  // ── 검색 + 탭 필터 ──
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    let gs = groups;
+    if (q) {
+      gs = gs.filter((g) =>
+        g.rows.some((r) => r.이름.toLowerCase().includes(q) || (r.연락처 ?? '').includes(q) || (r.소속 ?? '').toLowerCase().includes(q)),
+      );
+    }
+    if (tab === 'individual') return gs.filter((g) => g.type === '개인');
+    if (tab === 'group')      return gs.filter((g) => g.type === '단체');
+    if (tab === 'family')     return gs.filter((g) => g.wantsFamilyRoom);
+    return gs;
+  }, [groups, search, tab]);
 
-  const tabGroups = tab === 'all' ? groups
-    : tab === 'individual' ? groups.filter((g) => g.type === '개인')
-    : groups.filter((g) => g.type === '단체');
+  const activeDept = deptFilter ? DEPT_GROUPS.find((d) => d.label === deptFilter) : null;
 
   return (
     <div className="fixed inset-0 z-50 overflow-auto bg-slate-50">
       {/* 헤더 */}
-      <div className="bg-white border-b border-slate-100 sticky top-0 z-10">
-        <div className="max-w-screen-2xl mx-auto px-8 py-3 flex items-center justify-between">
+      <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
+        <div className="max-w-screen-2xl mx-auto px-6 py-3 flex items-center justify-between">
           <div>
-            <p className="text-xs text-blue-600 font-semibold">관리자</p>
+            <p className="text-xs text-blue-600 font-semibold">관리자 대시보드</p>
             <p className="text-base font-bold text-slate-900">2026 하나가족수양회</p>
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={load}
-              className="flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-200 transition-colors"
-            >
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => exportCsv(rows)}
+              className="flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-200 transition-colors">
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16" />
+              </svg>
+              엑셀(CSV)
+            </button>
+            <button type="button" onClick={load}
+              className="flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-200 transition-colors">
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h5M20 20v-5h-5M4 9a9 9 0 0115 0M20 15a9 9 0 01-15 0" />
               </svg>
               새로고침
             </button>
-            <button
-              type="button"
-              onClick={onLogout}
-              className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
-            >
-              로그아웃
-            </button>
+            <button type="button" onClick={onLogout}
+              className="text-xs text-slate-400 hover:text-slate-600 transition-colors ml-1">로그아웃</button>
           </div>
         </div>
       </div>
 
-      <div className="max-w-screen-2xl mx-auto px-8 py-6 flex flex-col gap-6">
-
-        {/* 오류 */}
-        {error && (
-          <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">{error}</div>
-        )}
-
-        {/* 로딩 */}
-        {loading && (
-          <div className="text-center py-16 text-slate-400 text-sm">불러오는 중…</div>
-        )}
+      <div className="max-w-screen-2xl mx-auto px-6 py-6 flex flex-col gap-6">
+        {error && <div className="rounded-sm bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">{error}</div>}
+        {loading && <div className="text-center py-16 text-slate-400 text-sm">불러오는 중…</div>}
 
         {!loading && !error && (
           <>
-            {/* 통계 + 부서별 — PC에서 한 줄 */}
-            <div className="grid grid-cols-1 xl:grid-cols-[auto_1fr] gap-4 items-start">
+            {/* KPI 카드 */}
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+              <KpiCard label="총 신청"     value={totalGroups} unit="건" sub={`개인 ${indivCnt} · 단체 ${groupCnt}`} />
+              <KpiCard label="총 인원"     value={totalPeople} unit="명" />
+              <KpiCard label="숙박"        value={lodgingCount} unit="명" sub={`비숙박 ${nonLodging}명`} />
+              <KpiCard label="가족실 희망" value={familyRoomCnt} unit="팀" />
+              <KpiCard label="입금 확인"   value={paidCnt}      unit="건" sub={`미확인 ${totalGroups - paidCnt}건`} />
+              <KpiCard label="예상 회비"   value={(expectedTotal / 10000).toLocaleString()} unit="만원" sub="할인 반영 합계" />
+            </div>
 
-              {/* 요약 카드 4개 */}
-              <div>
-                <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">요약</h2>
-                <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-2 gap-3 xl:w-64">
-                  <StatCard label="총 신청 인원" value={totalPeople} color="slate" />
-                  <StatCard label="숙박" value={lodgingCount} color="blue" />
-                  <StatCard label="비숙박" value={nonLodging} color="amber" />
-                  <StatCard label="확정 완료" value={confirmedCnt} sub={`/ ${groups.length}건`} color="emerald" />
-                </div>
+            {/* 진행률 + 부서별 */}
+            <div className="grid grid-cols-1 xl:grid-cols-[360px_1fr] gap-4">
+              <div className="rounded-sm bg-white border border-slate-200 px-5 py-5 flex flex-col gap-4 justify-center">
+                <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">처리 진행률</h2>
+                <ProgressBar label="입금 확인"  done={paidCnt}      total={totalGroups} />
+                <ProgressBar label="확정 완료"  done={confirmedCnt} total={totalGroups} />
               </div>
 
-              {/* 부서별 통계 */}
-              <div>
-                <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">부서별 현황</h2>
-                <div className="grid grid-cols-5 lg:grid-cols-9 gap-2">
-                  {deptStats.map(({ label, count }) => (
-                    <div key={label} className="rounded-xl bg-white border border-slate-200 px-3 py-3 text-center">
-                      <p className="text-xs text-slate-500 font-medium whitespace-nowrap">{label}</p>
-                      <p className="text-2xl font-bold text-slate-900 mt-1">{count}</p>
-                      <p className="text-xs text-slate-400">명</p>
-                    </div>
-                  ))}
+              <div className="rounded-sm bg-white border border-slate-200 px-5 py-5">
+                <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
+                  부서별 현황 <span className="text-slate-300 normal-case font-normal">· 클릭하면 명단을 볼 수 있어요</span>
+                </h2>
+                <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-2">
+                  {deptStats.map(({ label, count }) => {
+                    const active = deptFilter === label;
+                    return (
+                      <button
+                        key={label}
+                        type="button"
+                        onClick={() => setDeptFilter(active ? null : label)}
+                        className={`rounded-sm px-2 py-3 text-center transition-colors border ${
+                          active ? 'border-blue-500 bg-blue-50' : 'border-transparent bg-slate-50 hover:bg-slate-100'
+                        }`}
+                      >
+                        <p className={`text-xs font-medium whitespace-nowrap ${active ? 'text-blue-600' : 'text-slate-500'}`}>{label}</p>
+                        <p className={`text-2xl font-bold mt-1 ${active ? 'text-blue-700' : 'text-slate-900'}`}>{count}</p>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
 
-            {/* 탭 */}
-            <div>
-              <div className="flex gap-2 mb-4">
-                {([
-                  { key: 'all',        label: `전체 (${groups.length})` },
-                  { key: 'individual', label: `개인 (${groups.filter(g=>g.type==='개인').length})` },
-                  { key: 'group',      label: `단체 (${groups.filter(g=>g.type==='단체').length})` },
-                ] as const).map(({ key, label }) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setTab(key)}
-                    className={`rounded-xl px-4 py-2 text-sm font-semibold transition-colors ${
-                      tab === key ? 'bg-blue-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
+            {/* 부서별 드릴다운 패널 */}
+            {activeDept && (
+              <div className="rounded-sm bg-white border border-blue-200 overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 bg-blue-50 border-b border-blue-100">
+                  <h3 className="text-sm font-bold text-blue-800">
+                    {activeDept.label} 부서 명단
+                    <span className="ml-2 font-normal text-blue-500">
+                      {rows.filter((r) => activeDept.match(r.소속)).length}명
+                    </span>
+                  </h3>
+                  <button type="button" onClick={() => setDeptFilter(null)}
+                    className="text-xs font-semibold text-slate-500 hover:text-slate-700">✕ 닫기</button>
+                </div>
+                <div className="p-4">
+                  <DeptMemberTable groups={groups} match={activeDept.match} />
+                </div>
+              </div>
+            )}
+
+            {/* 검색 + 탭 */}
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex gap-2 flex-wrap">
+                  {([
+                    { key: 'all',        label: `전체 ${totalGroups}` },
+                    { key: 'individual', label: `개인 ${indivCnt}` },
+                    { key: 'group',      label: `단체 ${groupCnt}` },
+                    { key: 'family',     label: `가족실 ${familyRoomCnt}` },
+                  ] as const).map(({ key, label }) => (
+                    <button key={key} type="button" onClick={() => setTab(key)}
+                      className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
+                        tab === key ? 'bg-blue-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <div className="relative sm:w-64">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+                  </svg>
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="이름·연락처·소속 검색"
+                    className="w-full rounded-sm border border-slate-300 bg-white pl-9 pr-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  />
+                </div>
               </div>
 
-              {/* 테이블 */}
-              <div className="rounded-xl bg-white border border-slate-200 overflow-hidden p-4">
-                {(tab === 'all' || tab === 'individual') && (
+              {/* 테이블 영역 */}
+              <div className="rounded-sm bg-white border border-slate-200 p-4">
+                {tab === 'family' ? (
+                  <FamilyRoomBoard groups={filtered} />
+                ) : tab === 'individual' ? (
+                  <IndividualTable groups={filtered} password={password} onConfirm={handleConfirm} onPaid={handlePaid} />
+                ) : tab === 'group' ? (
+                  <GroupTable groups={filtered} password={password} onConfirm={handleConfirm} onPaid={handlePaid} />
+                ) : (
                   <>
-                    {(tab === 'all') && (
-                      <h3 className="text-sm font-bold text-slate-700 mb-3">개인 신청</h3>
-                    )}
-                    <IndividualTable
-                      groups={tabGroups.filter(g => g.type === '개인')}
-                      password={password}
-                      onConfirm={handleConfirm}
-                      onPaid={handlePaid}
-                    />
+                    <h3 className="text-sm font-bold text-slate-700 mb-3">개인 신청</h3>
+                    <IndividualTable groups={filtered.filter((g) => g.type === '개인')} password={password} onConfirm={handleConfirm} onPaid={handlePaid} />
+                    <div className="border-t border-slate-100 mt-6 pt-6">
+                      <h3 className="text-sm font-bold text-slate-700 mb-3">단체 신청</h3>
+                      <GroupTable groups={filtered.filter((g) => g.type === '단체')} password={password} onConfirm={handleConfirm} onPaid={handlePaid} />
+                    </div>
                   </>
-                )}
-
-                {tab === 'all' && (
-                  <div className="border-t border-slate-100 mt-6 pt-6">
-                    <h3 className="text-sm font-bold text-slate-700 mb-3">단체 신청</h3>
-                    <GroupTable
-                      groups={tabGroups.filter(g => g.type === '단체')}
-                      password={password}
-                      onConfirm={handleConfirm}
-                      onPaid={handlePaid}
-                    />
-                  </div>
-                )}
-
-                {tab === 'group' && (
-                  <GroupTable
-                    groups={tabGroups}
-                    password={password}
-                    onConfirm={handleConfirm}
-                    onPaid={handlePaid}
-                  />
                 )}
               </div>
             </div>
@@ -575,9 +689,6 @@ function Dashboard({ password, onLogout }: { password: string; onLogout: () => v
 // ── 페이지 ──────────────────────────────────────────────────────────────────
 export default function AdminPage() {
   const [password, setPassword] = useState<string | null>(null);
-
-  if (!password) {
-    return <LoginScreen onLogin={setPassword} />;
-  }
+  if (!password) return <LoginScreen onLogin={setPassword} />;
   return <Dashboard password={password} onLogout={() => setPassword(null)} />;
 }

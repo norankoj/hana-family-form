@@ -29,17 +29,22 @@ const REG_TYPE_KO: Record<string, string> = {
 export default function Step4Confirm({ formState, onBack, onSubmit, onRestart }: Step4Props) {
   const [loading, setLoading] = useState(false);
   const [agreed, setAgreed] = useState(false);
+  const [privacy, setPrivacy] = useState(false);
   const [done, setDone] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const summary = calcSummary(formState.representative, formState.companions);
   const rep = formState.representative;
 
   async function handleSubmit() {
-    if (!agreed) return;
+    if (!agreed || !privacy || loading) return;
+    setSubmitError('');
     setLoading(true);
     try {
       await onSubmit();
       setDone(true);
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : '신청 처리 중 오류가 발생했습니다.');
     } finally {
       setLoading(false);
     }
@@ -319,6 +324,41 @@ export default function Step4Confirm({ formState, onBack, onSubmit, onRestart }:
         </span>
       </label>
 
+      {/* 개인정보 수집·이용 동의 */}
+      <label className="flex items-start gap-3 cursor-pointer">
+        <div className="relative mt-0.5">
+          <input
+            type="checkbox"
+            className="sr-only"
+            checked={privacy}
+            onChange={(e) => setPrivacy(e.target.checked)}
+          />
+          <div className={[
+            'h-5 w-5 rounded flex items-center justify-center border-2 transition-all',
+            privacy ? 'bg-blue-500 border-blue-500' : 'bg-white border-slate-300',
+          ].join(' ')}>
+            {privacy && (
+              <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            )}
+          </div>
+        </div>
+        <span className="text-sm text-slate-600 leading-relaxed">
+          <strong className="text-slate-700">[필수]</strong> 개인정보 수집·이용에 동의합니다.{' '}
+          <span className="text-slate-400">
+            (수집 항목: 이름·연락처·소속 / 목적: 수양회 등록 및 안내 / 보유기간: 수양회 종료 후 파기)
+          </span>
+        </span>
+      </label>
+
+      {/* 제출 오류 */}
+      {submitError && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {submitError}
+        </div>
+      )}
+
       {/* 버튼 */}
       <div className="flex gap-3 pt-2">
         <Button variant="secondary" size="lg" onClick={onBack} disabled={loading}>
@@ -331,7 +371,7 @@ export default function Step4Confirm({ formState, onBack, onSubmit, onRestart }:
           variant="primary"
           size="lg"
           fullWidth
-          disabled={!agreed}
+          disabled={!agreed || !privacy}
           loading={loading}
           onClick={handleSubmit}
         >

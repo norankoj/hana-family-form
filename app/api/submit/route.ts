@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { FormState } from '@/lib/types';
 import { calcSummary } from '@/lib/calculations';
 import { DEPT_MAP } from '@/config/pricing';
+import { rateLimit, clientIp } from '@/lib/rateLimit';
 
 const APPS_SCRIPT_URL = process.env.APPS_SCRIPT_URL ?? '';
 
@@ -9,76 +10,131 @@ const REG_TYPE_KO: Record<string, string> = {
   EARLY: '선등록', REGULAR: '일반등록', ONSITE: '현장등록', DAILY: '일일등록',
 };
 
+const VALID_DEPTS = new Set(Object.keys(DEPT_MAP));
+const VALID_REG   = new Set(['EARLY', 'REGULAR', 'ONSITE', 'DAILY']);
+const VALID_LODGE = new Set(['LODGING', 'NON_LODGING']);
+const MAX_COMPANIONS = 10;
+const MAX_NAME = 40;
+
+// ── 입력 검증 ────────────────────────────────────────────────────────────
+function validate(fs: FormState): string | null {
+  if (!fs || (fs.applicationType !== 'INDIVIDUAL' && fs.applicationType !== 'GROUP')) {
+    return '신청 유형이 올바르지 않습니다.';
+  }
+  const rep = fs.representative;
+  if (!rep) return '신청자 정보가 없습니다.';
+  if (!rep.name?.trim() || rep.name.length > MAX_NAME) return '이름이 올바르지 않습니다.';
+
+  const digits = (rep.phone ?? '').replace(/\D/g, '');
+  if (digits.length < 10 || digits.length > 11) return '연락처가 올바르지 않습니다.';
+
+  if (!VALID_DEPTS.has(rep.department as string)) return '소속이 올바르지 않습니다.';
+  if (!VALID_REG.has(rep.registrationType)) return '등록 유형이 올바르지 않습니다.';
+  if (!VALID_LODGE.has(rep.lodging)) return '숙박 정보가 올바르지 않습니다.';
+
+  const companions = fs.companions ?? [];
+  if (!Array.isArray(companions)) return '일행 정보가 올바르지 않습니다.';
+  if (companions.length > MAX_COMPANIONS) return '일행 인원이 너무 많습니다.';
+  if (fs.applicationType === 'INDIVIDUAL' && companions.length > 0) {
+    return '개인 신청에는 일행을 추가할 수 없습니다.';
+  }
+  for (const c of companions) {
+    if (!c.name?.trim() || c.name.length > MAX_NAME) return '일행 이름이 올바르지 않습니다.';
+    if (!VALID_DEPTS.has(c.department as string)) return '일행 소속이 올바르지 않습니다.';
+    if (!VALID_REG.has(c.registrationType)) return '일행 등록 유형이 올바르지 않습니다.';
+    if (!VALID_LODGE.has(c.lodging)) return '일행 숙박 정보가 올바르지 않습니다.';
+  }
+  return null;
+}
+
+function newGroupId(): string {
+  // ms 타임스탬프 + 랜덤 4자리 → 동시 제출 충돌 방지
+  const ts = Date.now().toString(36).toUpperCase();
+  const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `${ts}-${rand}`;
+}
+
 function toRows(formState: FormState): string[][] {
   const now = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
-  const groupId = Date.now().toString(36).toUpperCase();
+  const groupId = newGroupId();
   const appType = formState.applicationType === 'GROUP' ? '단체' : '개인';
   const summary = calcSummary(formState.representative, formState.companions);
+  const rate = summary.multiChildRate;
 
-  const rows: string[][] = [];
-
-  // 대표자/신청자 행
   const rep = formState.representative;
   const repItem = summary.items.find((i) => i.isRepresentative);
-  rows.push([
-    groupId,                                          // A 신청번호
-    now,                                              // B 신청일시
-    appType,                                          // C 신청유형
-    '대표자',                                          // D 구분
-    rep.name,                                         // E 이름
-    rep.phone,                                        // F 연락처
-    rep.department,                                   // G 소속
-    rep.cellGroup ?? '',                              // H 셀번호
-    REG_TYPE_KO[rep.registrationType],                // I 등록유형
-    rep.dailyDate ?? '',                              // J 참석날짜
-    rep.lodging === 'LODGING' ? '숙박' : '비숙박',    // K 숙박
-    rep.wantsFamilyRoom ? '희망' : '',                // L 가족실
-    String(repItem?.subtotal ?? 0),                   // M 금액
-    groupId,                                          // N 그룹ID
-    '',                                               // O 확정 (Apps Script 관리)
-    '',                                               // P 입금확인 (Apps Script 관리)
-    rep.isYoungUCM ? 'Y' : '',                        // Q UCM할인
-  ]);
 
-  // 일행 행
+  // 1) 행 골격 + 원래 소계(subtotal)를 병렬 배열로 모은다
+  const rows: string[][] = [];
+  const subtotals: number[] = [];
+
+  rows.push([
+    groupId, now, appType, '대표자',
+    rep.name, rep.phone, rep.department as string, rep.cellGroup ?? '',
+    REG_TYPE_KO[rep.registrationType], rep.dailyDate ?? '',
+    rep.lodging === 'LODGING' ? '숙박' : '비숙박',
+    rep.wantsFamilyRoom ? '희망' : '',
+    '0',                                   // M 금액 (아래에서 할인 반영 후 채움)
+    groupId, '', '',
+    rep.isYoungUCM ? 'Y' : '',
+  ]);
+  subtotals.push(repItem?.subtotal ?? 0);
+
   formState.companions.forEach((c) => {
     const item = summary.items.find((i) => i.name === c.name && !i.isRepresentative);
     rows.push([
-      groupId,
-      now,
-      appType,
-      '일행',
-      c.name,
-      '',                                             // 연락처 없음
-      c.department,
-      c.cellGroup ?? '',
-      REG_TYPE_KO[c.registrationType],
-      c.dailyDate ?? '',
+      groupId, now, appType, '일행',
+      c.name, '', c.department as string, c.cellGroup ?? '',
+      REG_TYPE_KO[c.registrationType], c.dailyDate ?? '',
       c.lodging === 'LODGING' ? '숙박' : '비숙박',
-      '',                                             // 가족실 해당 없음
-      String(item?.subtotal ?? 0),
-      groupId,
-      '',                                             // O 확정
-      '',                                             // P 입금확인
-      c.isYoungUCM ? 'Y' : '',                        // Q UCM할인
+      '', '0', groupId, '', '',
+      c.isYoungUCM ? 'Y' : '',
     ]);
+    subtotals.push(item?.subtotal ?? 0);
   });
+
+  // 2) 다자녀 할인을 행별 금액에 반영 (시트 합계 = 고객 화면 총액과 일치)
+  const discounted = subtotals.map((s) => Math.floor(s * (1 - rate)));
+  const sumDisc = discounted.reduce((a, b) => a + b, 0);
+  const remainder = summary.total - sumDisc;   // 반올림 잔액은 대표자 행에 흡수
+  if (discounted.length > 0) discounted[0] += remainder;
+
+  rows.forEach((r, i) => { r[12] = String(discounted[i]); });
 
   return rows;
 }
 
 export async function POST(req: NextRequest) {
   if (!APPS_SCRIPT_URL) {
-    return NextResponse.json({ error: 'APPS_SCRIPT_URL 환경변수가 설정되지 않았습니다.' }, { status: 500 });
+    return NextResponse.json({ error: '서버 설정 오류입니다.' }, { status: 500 });
   }
 
-  const formState: FormState = await req.json();
+  // ── rate limit: IP당 1분에 8건 ──
+  const ip = clientIp(req);
+  if (!rateLimit(`submit:${ip}`, 8, 60_000)) {
+    return NextResponse.json({ error: '잠시 후 다시 시도해 주세요.' }, { status: 429 });
+  }
 
-  const rows = toRows(formState);
+  let body: FormState & { _hp?: string };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: '요청 형식이 올바르지 않습니다.' }, { status: 400 });
+  }
 
-  // Apps Script는 POST /exec → 302 /echo 흐름.
-  // redirect:'follow' 로 /echo 까지 따라가면 실제 응답 JSON을 읽을 수 있음.
-  // (스크립트는 /exec 단계에서 이미 실행되므로 redirect가 GET이어도 무관)
+  // ── 허니팟: 봇이 채우는 숨은 필드가 차 있으면 조용히 무시(성공처럼 응답) ──
+  if (body._hp) {
+    return NextResponse.json({ ok: true });
+  }
+
+  // ── 서버측 검증 ──
+  const err = validate(body);
+  if (err) {
+    return NextResponse.json({ error: err }, { status: 400 });
+  }
+
+  const rows = toRows(body);
+
   const res = await fetch(APPS_SCRIPT_URL, {
     method: 'POST',
     redirect: 'follow',
@@ -90,18 +146,17 @@ export async function POST(req: NextRequest) {
   console.log('[submit] Apps Script status:', res.status, '| body:', text.slice(0, 500));
 
   if (!res.ok) {
-    return NextResponse.json({ error: 'Apps Script 오류', status: res.status, body: text.slice(0, 200) }, { status: 502 });
+    // 내부 응답 본문은 클라이언트에 노출하지 않음
+    return NextResponse.json({ error: '신청 처리 중 오류가 발생했습니다.' }, { status: 502 });
   }
 
-  // 응답 JSON에서 ok 확인
   try {
     const json = JSON.parse(text);
     if (!json.ok) {
       console.error('[submit] Apps Script returned ok:false:', json);
-      return NextResponse.json({ error: json.error ?? 'script error' }, { status: 502 });
+      return NextResponse.json({ error: '신청 처리 중 오류가 발생했습니다.' }, { status: 502 });
     }
   } catch {
-    // JSON이 아닌 응답이면 그냥 성공으로 간주
     console.warn('[submit] response is not JSON, treating as success');
   }
 
