@@ -184,33 +184,95 @@ function LodgeBadge({ value }: { value: string }) {
   );
 }
 
+// ── 정렬 유틸 ────────────────────────────────────────────────────────────────
+type SortDir = 'asc' | 'desc' | null;
+
+function SortIcon({ dir }: { dir: SortDir }) {
+  if (dir === 'asc')  return <span className="ml-0.5 text-blue-500 text-[9px]">▲</span>;
+  if (dir === 'desc') return <span className="ml-0.5 text-blue-500 text-[9px]">▼</span>;
+  return <span className="ml-0.5 opacity-25 text-[9px]">▲▼</span>;
+}
+
+function SortTh({ label, col, active, dir, onSort, align = 'left' }: {
+  label: string; col: string; active: boolean; dir: SortDir;
+  onSort: (col: string) => void; align?: 'left' | 'center' | 'right';
+}) {
+  const alignCls = align === 'right' ? 'text-right' : align === 'center' ? 'text-center' : 'text-left';
+  return (
+    <th
+      onClick={() => onSort(col)}
+      className={`cursor-pointer select-none border-b border-slate-200 px-3 py-2.5 whitespace-nowrap transition-colors ${alignCls} ${
+        active ? 'text-blue-600 bg-blue-50/60' : 'text-slate-500 hover:bg-slate-100'
+      }`}
+    >
+      {label}<SortIcon dir={active ? dir : null} />
+    </th>
+  );
+}
+
 // ── 개인 신청 테이블 ──────────────────────────────────────────────────────
+type IndivSortKey = 'status' | 'name' | 'dept' | 'regType' | 'lodging' | 'amount' | 'date';
+
 function IndividualTable({ groups, password, onConfirm, onPaid, onDelete }: {
   groups: Group[]; password: string; onConfirm: (id: string) => void; onPaid: (id: string) => void; onDelete: (id: string) => void;
 }) {
+  const [sortKey, setSortKey] = useState<IndivSortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>(null);
+
+  function toggleSort(col: string) {
+    const key = col as IndivSortKey;
+    if (sortKey !== key) { setSortKey(key); setSortDir('asc'); return; }
+    if (sortDir === 'asc') { setSortDir('desc'); return; }
+    setSortKey(null); setSortDir(null);
+  }
+
+  const sorted = useMemo(() => {
+    if (!sortKey || !sortDir) return groups;
+    const m = sortDir === 'asc' ? 1 : -1;
+    return [...groups].sort((a, b) => {
+      switch (sortKey) {
+        case 'status':  return ((a.confirmed ? 2 : a.paid ? 1 : 0) - (b.confirmed ? 2 : b.paid ? 1 : 0)) * m;
+        case 'name':    return a.rep.이름.localeCompare(b.rep.이름, 'ko') * m;
+        case 'dept':    return a.rep.소속.localeCompare(b.rep.소속, 'ko') * m;
+        case 'regType': return a.rep.등록유형.localeCompare(b.rep.등록유형, 'ko') * m;
+        case 'lodging': return a.rep.숙박.localeCompare(b.rep.숙박, 'ko') * m;
+        case 'amount':  return (a.total - b.total) * m;
+        case 'date':    return a.신청일시.localeCompare(b.신청일시) * m;
+        default: return 0;
+      }
+    });
+  }, [groups, sortKey, sortDir]);
+
   if (groups.length === 0) return <p className="text-sm text-slate-400 py-6 text-center">신청 내역이 없습니다.</p>;
+
+  const th = (col: string, label: string, align?: 'left' | 'center' | 'right') => (
+    <SortTh col={col} label={label} active={sortKey === col} dir={sortDir} onSort={toggleSort} align={align} />
+  );
+  const plainTh = (label: string, align: 'left' | 'center' | 'right' = 'center') => (
+    <th className={`border-b border-slate-200 px-3 py-2.5 whitespace-nowrap text-slate-500 text-${align}`}>{label}</th>
+  );
 
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm border-collapse">
         <thead>
-          <tr className="bg-slate-50 text-xs text-slate-500">
-            <th className="border-b border-slate-200 px-3 py-2.5 text-left whitespace-nowrap">상태</th>
-            <th className="border-b border-slate-200 px-3 py-2.5 text-left whitespace-nowrap">이름</th>
-            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">연락처</th>
-            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">소속</th>
-            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">셀번호</th>
-            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">등록유형</th>
-            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">숙박</th>
-            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap text-right">금액</th>
-            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">신청일시</th>
-            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">입금확인</th>
-            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">확정</th>
-            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">관리</th>
+          <tr className="bg-slate-50 text-xs">
+            {th('status',  '상태')}
+            {th('name',    '이름')}
+            {plainTh('연락처')}
+            {th('dept',    '소속', 'center')}
+            {plainTh('셀번호')}
+            {th('regType', '등록유형', 'center')}
+            {th('lodging', '숙박', 'center')}
+            {th('amount',  '금액', 'right')}
+            {th('date',    '신청일시', 'center')}
+            {plainTh('입금확인')}
+            {plainTh('확정')}
+            {plainTh('관리')}
           </tr>
         </thead>
         <tbody>
-          {groups.map((g) => {
+          {sorted.map((g) => {
             const rep = g.rep;
             return (
               <tr key={g.groupId} className={`${g.confirmed ? 'bg-emerald-50/40' : 'bg-white hover:bg-slate-50'} border-b border-slate-100`}>
@@ -315,13 +377,69 @@ function GroupCard({ g, password, onConfirm, onPaid, onDelete }: {
   );
 }
 
+type GroupSortKey = 'status' | 'name' | 'count' | 'amount' | 'date';
+
 function GroupTable({ groups, password, onConfirm, onPaid, onDelete }: {
   groups: Group[]; password: string; onConfirm: (id: string) => void; onPaid: (id: string) => void; onDelete: (id: string) => void;
 }) {
+  const [sortKey, setSortKey] = useState<GroupSortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>(null);
+
+  function toggleSort(key: GroupSortKey) {
+    if (sortKey !== key) { setSortKey(key); setSortDir('asc'); return; }
+    if (sortDir === 'asc') { setSortDir('desc'); return; }
+    setSortKey(null); setSortDir(null);
+  }
+
+  const sorted = useMemo(() => {
+    if (!sortKey || !sortDir) return groups;
+    const m = sortDir === 'asc' ? 1 : -1;
+    return [...groups].sort((a, b) => {
+      switch (sortKey) {
+        case 'status': return ((a.confirmed ? 2 : a.paid ? 1 : 0) - (b.confirmed ? 2 : b.paid ? 1 : 0)) * m;
+        case 'name':   return a.rep.이름.localeCompare(b.rep.이름, 'ko') * m;
+        case 'count':  return (a.rows.filter((r) => r.구분 !== '할인').length - b.rows.filter((r) => r.구분 !== '할인').length) * m;
+        case 'amount': return (a.total - b.total) * m;
+        case 'date':   return a.신청일시.localeCompare(b.신청일시) * m;
+        default: return 0;
+      }
+    });
+  }, [groups, sortKey, sortDir]);
+
   if (groups.length === 0) return <p className="text-sm text-slate-400 py-6 text-center">신청 내역이 없습니다.</p>;
+
+  const sortOptions: { key: GroupSortKey; label: string }[] = [
+    { key: 'name',   label: '이름' },
+    { key: 'count',  label: '인원' },
+    { key: 'amount', label: '금액' },
+    { key: 'date',   label: '신청일' },
+    { key: 'status', label: '상태' },
+  ];
+
   return (
     <div className="flex flex-col gap-3">
-      {groups.map((g) => <GroupCard key={g.groupId} g={g} password={password} onConfirm={onConfirm} onPaid={onPaid} onDelete={onDelete} />)}
+      {/* 정렬 컨트롤 */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <span className="text-xs text-slate-400">정렬</span>
+        {sortOptions.map(({ key, label }) => {
+          const active = sortKey === key;
+          return (
+            <button key={key} type="button" onClick={() => toggleSort(key)}
+              className={`flex items-center gap-0.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
+                active ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+              }`}>
+              {label}<SortIcon dir={active ? sortDir : null} />
+            </button>
+          );
+        })}
+        {sortKey && (
+          <button type="button" onClick={() => { setSortKey(null); setSortDir(null); }}
+            className="text-xs text-slate-400 hover:text-slate-600 ml-1">
+            초기화
+          </button>
+        )}
+      </div>
+      {sorted.map((g) => <GroupCard key={g.groupId} g={g} password={password} onConfirm={onConfirm} onPaid={onPaid} onDelete={onDelete} />)}
     </div>
   );
 }
