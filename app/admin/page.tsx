@@ -185,8 +185,8 @@ function LodgeBadge({ value }: { value: string }) {
 }
 
 // ── 개인 신청 테이블 ──────────────────────────────────────────────────────
-function IndividualTable({ groups, password, onConfirm, onPaid }: {
-  groups: Group[]; password: string; onConfirm: (id: string) => void; onPaid: (id: string) => void;
+function IndividualTable({ groups, password, onConfirm, onPaid, onDelete }: {
+  groups: Group[]; password: string; onConfirm: (id: string) => void; onPaid: (id: string) => void; onDelete: (id: string) => void;
 }) {
   if (groups.length === 0) return <p className="text-sm text-slate-400 py-6 text-center">신청 내역이 없습니다.</p>;
 
@@ -206,6 +206,7 @@ function IndividualTable({ groups, password, onConfirm, onPaid }: {
             <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">신청일시</th>
             <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">입금확인</th>
             <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">확정</th>
+            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">관리</th>
           </tr>
         </thead>
         <tbody>
@@ -230,6 +231,9 @@ function IndividualTable({ groups, password, onConfirm, onPaid }: {
                   {g.confirmed ? <span className="text-blue-600 font-bold text-xs">✓ 확정</span>
                                : <ConfirmButton groupId={g.groupId} password={password} onConfirm={onConfirm} />}
                 </td>
+                <td className="px-3 py-2.5 text-center">
+                  <DeleteButton groupId={g.groupId} label={rep.이름} password={password} onDelete={onDelete} />
+                </td>
               </tr>
             );
           })}
@@ -240,8 +244,8 @@ function IndividualTable({ groups, password, onConfirm, onPaid }: {
 }
 
 // ── 단체 신청 카드 ──────────────────────────────────────────────────────
-function GroupCard({ g, password, onConfirm, onPaid }: {
-  g: Group; password: string; onConfirm: (id: string) => void; onPaid: (id: string) => void;
+function GroupCard({ g, password, onConfirm, onPaid, onDelete }: {
+  g: Group; password: string; onConfirm: (id: string) => void; onPaid: (id: string) => void; onDelete: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const memberCount = g.rows.filter((r) => r.구분 !== '할인').length;
@@ -266,6 +270,7 @@ function GroupCard({ g, password, onConfirm, onPaid }: {
                   : <PaymentButton groupId={g.groupId} password={password} onPaid={onPaid} />}
           {g.confirmed ? <span className="inline-flex items-center rounded-sm bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">✓ 확정</span>
                        : <ConfirmButton groupId={g.groupId} password={password} onConfirm={onConfirm} />}
+          <DeleteButton groupId={g.groupId} label={`${g.rep.이름} 외 ${memberCount - 1}명`} password={password} onDelete={onDelete} />
         </div>
       </div>
       {/* 멤버 목록 */}
@@ -310,13 +315,13 @@ function GroupCard({ g, password, onConfirm, onPaid }: {
   );
 }
 
-function GroupTable({ groups, password, onConfirm, onPaid }: {
-  groups: Group[]; password: string; onConfirm: (id: string) => void; onPaid: (id: string) => void;
+function GroupTable({ groups, password, onConfirm, onPaid, onDelete }: {
+  groups: Group[]; password: string; onConfirm: (id: string) => void; onPaid: (id: string) => void; onDelete: (id: string) => void;
 }) {
   if (groups.length === 0) return <p className="text-sm text-slate-400 py-6 text-center">신청 내역이 없습니다.</p>;
   return (
     <div className="flex flex-col gap-3">
-      {groups.map((g) => <GroupCard key={g.groupId} g={g} password={password} onConfirm={onConfirm} onPaid={onPaid} />)}
+      {groups.map((g) => <GroupCard key={g.groupId} g={g} password={password} onConfirm={onConfirm} onPaid={onPaid} onDelete={onDelete} />)}
     </div>
   );
 }
@@ -455,6 +460,32 @@ function PaymentButton({ groupId, password, onPaid }: {
   );
 }
 
+// ── 삭제 버튼 ──────────────────────────────────────────────────────────────
+function DeleteButton({ groupId, label, password, onDelete }: {
+  groupId: string; label: string; password: string; onDelete: (id: string) => void;
+}) {
+  const [loading, setLoading] = useState(false);
+  async function handleClick() {
+    if (!confirm(`'${label}' 신청을 삭제할까요?\n\n구글시트(엑셀)에서도 함께 삭제되며 되돌릴 수 없습니다.`)) return;
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password, groupId }),
+      });
+      if (res.ok) onDelete(groupId);
+      else alert('삭제 중 오류가 발생했습니다.');
+    } finally { setLoading(false); }
+  }
+  return (
+    <button type="button" onClick={handleClick} disabled={loading}
+      className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-bold text-red-500 hover:bg-red-50 hover:border-red-200 disabled:opacity-50 transition-colors whitespace-nowrap">
+      {loading ? '삭제중…' : '삭제'}
+    </button>
+  );
+}
+
 // ── CSV 내보내기 ──────────────────────────────────────────────────────────
 function exportCsv(rows: Row[]) {
   const headers = ['신청번호','신청일시','신청유형','구분','이름','연락처','소속','셀번호','등록유형','참석날짜','숙박','가족실','금액','확정','입금확인'];
@@ -523,6 +554,7 @@ function Dashboard({ password, onLogout }: { password: string; onLogout: () => v
 
   function handleConfirm(id: string) { setConfirmed((p) => new Set([...p, id])); }
   function handlePaid(id: string)    { setPaid((p) => new Set([...p, id])); }
+  function handleDelete(id: string)  { setRows((prev) => prev.filter((r) => r.groupId !== id)); }
 
   // ── 검색 + 탭 필터 ──
   const filtered = useMemo(() => {
@@ -675,16 +707,16 @@ function Dashboard({ password, onLogout }: { password: string; onLogout: () => v
                 {tab === 'family' ? (
                   <FamilyRoomBoard groups={filtered} />
                 ) : tab === 'individual' ? (
-                  <IndividualTable groups={filtered} password={password} onConfirm={handleConfirm} onPaid={handlePaid} />
+                  <IndividualTable groups={filtered} password={password} onConfirm={handleConfirm} onPaid={handlePaid} onDelete={handleDelete} />
                 ) : tab === 'group' ? (
-                  <GroupTable groups={filtered} password={password} onConfirm={handleConfirm} onPaid={handlePaid} />
+                  <GroupTable groups={filtered} password={password} onConfirm={handleConfirm} onPaid={handlePaid} onDelete={handleDelete} />
                 ) : (
                   <>
                     <h3 className="text-sm font-bold text-slate-700 mb-3">개인 신청</h3>
-                    <IndividualTable groups={filtered.filter((g) => g.type === '개인')} password={password} onConfirm={handleConfirm} onPaid={handlePaid} />
+                    <IndividualTable groups={filtered.filter((g) => g.type === '개인')} password={password} onConfirm={handleConfirm} onPaid={handlePaid} onDelete={handleDelete} />
                     <div className="border-t border-slate-100 mt-6 pt-6">
                       <h3 className="text-sm font-bold text-slate-700 mb-3">단체 신청</h3>
-                      <GroupTable groups={filtered.filter((g) => g.type === '단체')} password={password} onConfirm={handleConfirm} onPaid={handlePaid} />
+                      <GroupTable groups={filtered.filter((g) => g.type === '단체')} password={password} onConfirm={handleConfirm} onPaid={handlePaid} onDelete={handleDelete} />
                     </div>
                   </>
                 )}

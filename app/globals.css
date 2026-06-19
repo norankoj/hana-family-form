@@ -1,5 +1,4 @@
-@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-
+/* 폰트는 layout.tsx <head>에서 preconnect + 가변 서브셋으로 비차단 로드 */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

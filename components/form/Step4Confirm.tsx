@@ -180,6 +180,16 @@ export default function Step4Confirm({ formState, onBack, onSubmit, onRestart }:
   }
 
   return (
+    <>
+      {/* 제출 중 전체화면 오버레이 — 다른 조작 차단 */}
+      {loading && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-4 bg-white/85 backdrop-blur-sm">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-slate-200 border-t-blue-600" />
+          <p className="text-base font-bold text-slate-700">신청을 접수하고 있어요…</p>
+          <p className="text-xs text-slate-400">잠시만 기다려 주세요. 창을 닫지 마세요.</p>
+        </div>
+      )}
+
     <div className="flex flex-col gap-5">
       <div>
         <h2 className="text-xl font-bold text-slate-800">신청 내용을 확인해 주세요</h2>
@@ -379,5 +389,6 @@ export default function Step4Confirm({ formState, onBack, onSubmit, onRestart }:
         </Button>
       </div>
     </div>
+    </>
   );
 }

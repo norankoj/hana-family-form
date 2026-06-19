@@ -18,6 +18,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko">
+      <head>
+        {/* 폰트 CDN 사전 연결 + 가변 폰트 한글 동적 서브셋(필요한 글자만 로드) */}
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="" />
+        <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css"
+        />
+      </head>
       <body>
         <div className="min-h-screen flex flex-col">
           {/* 헤더 */}
