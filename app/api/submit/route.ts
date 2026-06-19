@@ -59,27 +59,25 @@ function toRows(formState: FormState): string[][] {
   const groupId = newGroupId();
   const appType = formState.applicationType === 'GROUP' ? '단체' : '개인';
   const summary = calcSummary(formState.representative, formState.companions);
-  const rate = summary.multiChildRate;
 
   const rep = formState.representative;
   const repItem = summary.items.find((i) => i.isRepresentative);
 
-  // 1) 행 골격 + 원래 소계(subtotal)를 병렬 배열로 모은다
   const rows: string[][] = [];
-  const subtotals: number[] = [];
 
+  // 대표자 — 금액은 본인 실제 회비(할인 전)
   rows.push([
     groupId, now, appType, '대표자',
     rep.name, rep.phone, rep.department as string, rep.cellGroup ?? '',
     REG_TYPE_KO[rep.registrationType], rep.dailyDate ?? '',
     rep.lodging === 'LODGING' ? '숙박' : '비숙박',
     rep.wantsFamilyRoom ? '희망' : '',
-    '0',                                   // M 금액 (아래에서 할인 반영 후 채움)
+    String(repItem?.subtotal ?? 0),        // M 금액 (실제 회비)
     groupId, '', '',
     rep.isYoungUCM ? 'Y' : '',
   ]);
-  subtotals.push(repItem?.subtotal ?? 0);
 
+  // 일행 — 각자 실제 회비
   formState.companions.forEach((c) => {
     const item = summary.items.find((i) => i.name === c.name && !i.isRepresentative);
     rows.push([
@@ -87,19 +85,23 @@ function toRows(formState: FormState): string[][] {
       c.name, '', c.department as string, c.cellGroup ?? '',
       REG_TYPE_KO[c.registrationType], c.dailyDate ?? '',
       c.lodging === 'LODGING' ? '숙박' : '비숙박',
-      '', '0', groupId, '', '',
+      '', String(item?.subtotal ?? 0), groupId, '', '',
       c.isYoungUCM ? 'Y' : '',
     ]);
-    subtotals.push(item?.subtotal ?? 0);
   });
 
-  // 2) 다자녀 할인을 행별 금액에 반영 (시트 합계 = 고객 화면 총액과 일치)
-  const discounted = subtotals.map((s) => Math.floor(s * (1 - rate)));
-  const sumDisc = discounted.reduce((a, b) => a + b, 0);
-  const remainder = summary.total - sumDisc;   // 반올림 잔액은 대표자 행에 흡수
-  if (discounted.length > 0) discounted[0] += remainder;
-
-  rows.forEach((r, i) => { r[12] = String(discounted[i]); });
+  // 다자녀 할인은 별도 '할인' 행으로 기록한다.
+  //  → 구성원 각자의 금액은 실제 회비 그대로 유지되고(가격표·고객화면과 일치),
+  //    그룹 합계(행 합)는 할인이 반영되어 고객 화면 총액과 정확히 일치한다.
+  if (summary.multiChildDiscountTotal > 0) {
+    rows.push([
+      groupId, now, appType, '할인',
+      `다자녀 할인 ${Math.round(summary.multiChildRate * 100)}%`, '', '', '',
+      '', '', '', '',
+      String(-summary.multiChildDiscountTotal),   // M 금액 (음수)
+      groupId, '', '', '',
+    ]);
+  }
 
   return rows;
 }

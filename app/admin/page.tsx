@@ -244,6 +244,7 @@ function GroupCard({ g, password, onConfirm, onPaid }: {
   g: Group; password: string; onConfirm: (id: string) => void; onPaid: (id: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const memberCount = g.rows.filter((r) => r.구분 !== '할인').length;
   return (
     <div className={`rounded-sm border ${g.confirmed ? 'border-emerald-200' : 'border-slate-200'}`}>
       {/* 그룹 헤더 */}
@@ -253,7 +254,7 @@ function GroupCard({ g, password, onConfirm, onPaid }: {
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
           </svg>
           <StatusBadge g={g} />
-          <span className="font-bold text-slate-900">{g.rep.이름} <span className="font-normal text-slate-400">외 {g.rows.length - 1}명</span></span>
+          <span className="font-bold text-slate-900">{g.rep.이름} <span className="font-normal text-slate-400">외 {memberCount - 1}명</span></span>
           {g.wantsFamilyRoom && (
             <span className="inline-flex items-center rounded-sm border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700">🛏 가족실</span>
           )}
@@ -282,16 +283,25 @@ function GroupCard({ g, password, onConfirm, onPaid }: {
           </thead>
           <tbody>
             {g.rows.map((row, i) => (
-              <tr key={i} className="border-t border-slate-100">
-                <td className="px-4 py-2">
-                  <span className={`inline-block rounded-sm px-2 py-0.5 text-xs font-semibold ${row.구분 === '대표자' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>{row.구분}</span>
-                </td>
-                <td className="px-4 py-2 font-medium text-slate-800">{row.이름}</td>
-                <td className="px-4 py-2 text-center text-slate-600 whitespace-nowrap">{row.소속}</td>
-                <td className="px-4 py-2 text-center text-slate-600 whitespace-nowrap">{row.등록유형}</td>
-                <td className="px-4 py-2 text-center"><LodgeBadge value={row.숙박} /></td>
-                <td className="px-4 py-2 text-right font-semibold text-slate-700">{krw(Number(row.금액 || 0))}</td>
-              </tr>
+              row.구분 === '할인' ? (
+                <tr key={i} className="border-t border-slate-100 bg-slate-50">
+                  <td className="px-4 py-2" colSpan={5}>
+                    <span className="text-xs font-semibold text-slate-500">{row.이름}</span>
+                  </td>
+                  <td className="px-4 py-2 text-right font-semibold text-blue-600">{krw(Number(row.금액 || 0))}</td>
+                </tr>
+              ) : (
+                <tr key={i} className="border-t border-slate-100">
+                  <td className="px-4 py-2">
+                    <span className={`inline-block rounded-sm px-2 py-0.5 text-xs font-semibold ${row.구분 === '대표자' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>{row.구분}</span>
+                  </td>
+                  <td className="px-4 py-2 font-medium text-slate-800">{row.이름}</td>
+                  <td className="px-4 py-2 text-center text-slate-600 whitespace-nowrap">{row.소속}</td>
+                  <td className="px-4 py-2 text-center text-slate-600 whitespace-nowrap">{row.등록유형}</td>
+                  <td className="px-4 py-2 text-center"><LodgeBadge value={row.숙박} /></td>
+                  <td className="px-4 py-2 text-right font-semibold text-slate-700">{krw(Number(row.금액 || 0))}</td>
+                </tr>
+              )
             ))}
           </tbody>
         </table>
@@ -330,14 +340,15 @@ function FamilyRoomBoard({ groups }: { groups: Group[] }) {
         </thead>
         <tbody>
           {rooms.map((g) => {
-            const lodgingCnt = g.rows.filter((r) => r.숙박 === '숙박').length;
+            const members = g.rows.filter((r) => r.구분 !== '할인');
+            const lodgingCnt = members.filter((r) => r.숙박 === '숙박').length;
             return (
               <tr key={g.groupId} className="border-b border-slate-100 hover:bg-slate-50">
                 <td className="px-3 py-2.5 font-semibold text-slate-800 whitespace-nowrap">{g.rep.이름}</td>
                 <td className="px-3 py-2.5 text-center text-slate-600 whitespace-nowrap">{g.rep.연락처}</td>
-                <td className="px-3 py-2.5 text-center font-bold text-blue-700">{g.rows.length}명</td>
+                <td className="px-3 py-2.5 text-center font-bold text-blue-700">{members.length}명</td>
                 <td className="px-3 py-2.5 text-center text-slate-600">{lodgingCnt}명</td>
-                <td className="px-3 py-2.5 text-slate-600 text-xs">{g.rows.map((r) => r.이름).join(', ')}</td>
+                <td className="px-3 py-2.5 text-slate-600 text-xs">{members.map((r) => r.이름).join(', ')}</td>
                 <td className="px-3 py-2.5 text-center"><StatusBadge g={g} /></td>
               </tr>
             );
@@ -497,8 +508,8 @@ function Dashboard({ password, onLogout }: { password: string; onLogout: () => v
 
   const groups = useMemo(() => buildGroups(rows, confirmed, paid), [rows, confirmed, paid]);
 
-  // ── 통계 ──
-  const totalPeople   = rows.length;
+  // ── 통계 ── ('할인' 행은 인원이 아니므로 제외)
+  const totalPeople   = rows.filter((r) => r.구분 !== '할인').length;
   const lodgingCount  = rows.filter((r) => r.숙박 === '숙박').length;
   const nonLodging    = totalPeople - lodgingCount;
   const deptStats     = calcDeptStats(rows);
