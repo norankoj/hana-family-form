@@ -4,6 +4,7 @@ import type { FormState } from '@/lib/types';
 import { calcSummary, formatKRW } from '@/lib/calculations';
 import Button from '@/components/ui/Button';
 import InfoBox from '@/components/ui/InfoBox';
+import PriceTable, { type PriceHighlight } from '@/components/ui/PriceTable';
 
 interface Step4Props {
   formState: FormState;
@@ -35,6 +36,11 @@ export default function Step4Confirm({ formState, onBack, onSubmit, onRestart }:
 
   const summary = calcSummary(formState.representative, formState.companions);
   const rep = formState.representative;
+
+  const highlights: PriceHighlight[] = [
+    ...(rep.department ? [{ department: rep.department, registrationType: rep.registrationType, lodging: rep.lodging }] : []),
+    ...formState.companions.filter((c) => c.department).map((c) => ({ department: c.department, registrationType: c.registrationType, lodging: c.lodging })),
+  ];
 
   async function handleSubmit() {
     if (!agreed || !privacy || loading) return;
@@ -296,6 +302,12 @@ export default function Step4Confirm({ formState, onBack, onSubmit, onRestart }:
           <span className="font-bold text-slate-800">총 입금액</span>
           <span className="font-bold text-xl text-blue-600">{formatKRW(summary.total)}</span>
         </div>
+      </div>
+
+      {/* 회비 안내표 */}
+      <div>
+        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">회비 안내</p>
+        <PriceTable highlights={highlights} />
       </div>
 
       {/* 입금 안내 */}

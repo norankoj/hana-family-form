@@ -54,6 +54,7 @@ export default function HomePage() {
   const [formState, setFormState] = useState<FormState>(defaultFormState());
   const [direction, setDirection] = useState<"forward" | "back">("forward");
   const [feeOpen, setFeeOpen] = useState(false);
+  const [programOpen, setProgramOpen] = useState(false);
   const [groupCount, setGroupCount] = useState<number | null>(null);
   const [hp, setHp] = useState(""); // 허니팟 (봇 차단용 숨은 필드)
 
@@ -237,6 +238,64 @@ export default function HomePage() {
             </div>
           </div>
 
+          {/* 다음세대 프로그램 카드 */}
+          <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setProgramOpen((v) => !v)}
+              className="w-full px-6 py-5 flex items-center justify-between text-left"
+            >
+              <div>
+                <span className="inline-block rounded-full bg-violet-50 px-3 py-0.5 text-xs font-semibold text-violet-600 mb-2">
+                  다음세대 프로그램
+                </span>
+                <p className="text-lg font-bold text-slate-900">
+                  조이코너 &amp; 조이랜드 안내
+                </p>
+              </div>
+              <svg
+                className={`h-5 w-5 text-slate-400 transition-transform duration-200 ${programOpen ? "rotate-180" : ""}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {programOpen && (
+              <div className="px-6 pb-6 flex flex-col gap-4">
+                <div className="border-t border-slate-100" />
+
+                {/* 조이코너 */}
+                <div className="rounded-xl border border-slate-200 overflow-hidden">
+                  <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
+                    <p className="text-sm font-bold text-slate-800">조이코너</p>
+                  </div>
+                  <div className="px-4 py-3">
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      <strong className="text-slate-800">4개 세션</strong>으로 별도 진행되며, 세션 외 식사·숙박 시간은{" "}
+                      <strong className="text-slate-800">부모님과 함께</strong> 합니다.
+                    </p>
+                  </div>
+                </div>
+
+                {/* 조이랜드 */}
+                <div className="rounded-xl border border-slate-200 overflow-hidden">
+                  <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
+                    <p className="text-sm font-bold text-slate-800">조이랜드</p>
+                  </div>
+                  <div className="px-4 py-3">
+                    <p className="text-sm text-slate-600 leading-relaxed">
+                      선생님과 학생들이 <strong className="text-slate-800">부모님과 별도로</strong> 식사·숙박을 함께합니다.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* 회비 안내 카드 */}
           <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden">
             {/* 헤더 — 누르면 토글 */}
@@ -334,26 +393,75 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  {/* UCM · 청년1부 · YCM */}
+                  {/* UCM · 청년1부 */}
                   <div className="rounded-xl border border-slate-200 overflow-hidden">
                     <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
                       <p className="text-sm font-bold text-slate-800">
-                        1진 청년1부 · UCM · YCM{" "}
+                        1진 청년1부 · UCM{" "}
                         <span className="text-xs font-normal text-slate-400">
-                          숙박 기본 포함
+                          숙박이 원칙
                         </span>
                       </p>
                     </div>
-                    <div className="px-4 py-3 text-center">
-                      <span className="inline-block rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-700 mb-2">
-                        숙박 1박2일
-                      </span>
-                      <p className="text-base font-bold text-blue-700">
-                        선등록 7만 5천원
+                    <div className="grid grid-cols-2 divide-x divide-slate-200">
+                      <div className="px-4 py-3 text-center">
+                        <span className="inline-block rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-semibold text-slate-600 mb-2">
+                          비숙박
+                        </span>
+                        <p className="text-base font-bold text-slate-800">
+                          선등록 6만원
+                        </p>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          일반 6.5만 · 현장 7만
+                        </p>
+                      </div>
+                      <div className="px-4 py-3 text-center">
+                        <span className="inline-block rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-700 mb-2">
+                          숙박 1박2일
+                        </span>
+                        <p className="text-base font-bold text-blue-700">
+                          선등록 7만 5천원
+                        </p>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          일반 8.5만 · 현장 9만
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* YCM */}
+                  <div className="rounded-xl border border-slate-200 overflow-hidden">
+                    <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
+                      <p className="text-sm font-bold text-slate-800">
+                        중고등부 YCM{" "}
+                        <span className="text-xs font-normal text-slate-400">
+                          숙박이 원칙
+                        </span>
                       </p>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        일반 8만 · 현장 8.5만
-                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 divide-x divide-slate-200">
+                      <div className="px-4 py-3 text-center">
+                        <span className="inline-block rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-semibold text-slate-600 mb-2">
+                          비숙박
+                        </span>
+                        <p className="text-base font-bold text-slate-800">
+                          선등록 5.5만원
+                        </p>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          일반 6만 · 현장 6.5만
+                        </p>
+                      </div>
+                      <div className="px-4 py-3 text-center">
+                        <span className="inline-block rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-700 mb-2">
+                          숙박 1박2일
+                        </span>
+                        <p className="text-base font-bold text-blue-700">
+                          선등록 7만 5천원
+                        </p>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          일반 8만 · 현장 8.5만
+                        </p>
+                      </div>
                     </div>
                   </div>
 
@@ -449,6 +557,9 @@ export default function HomePage() {
                         </p>
                         <p className="text-xs text-slate-400 mt-0.5">
                           일반 2만 · 현장 2.5만
+                        </p>
+                        <p className="text-[10px] text-red-400 mt-1">
+                          숙박·비숙박 동일
                         </p>
                       </div>
                       <div className="px-4 py-3 text-center">

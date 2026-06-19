@@ -5,7 +5,6 @@ import { DEPARTMENT_OPTIONS } from "@/lib/types";
 import {
   DEPT_MAP,
   LODGING_FIXED_DEPTS,
-  NON_LODGING_DISCOUNT,
   getRegistrationType,
   DAILY_DATE_OPTIONS,
 } from "@/config/pricing";
@@ -14,7 +13,6 @@ import { formatPhone } from "@/lib/calculations";
 import Button from "@/components/ui/Button";
 import FieldGroup from "@/components/ui/FieldGroup";
 import ToggleGroup from "@/components/ui/ToggleGroup";
-import InfoBox from "@/components/ui/InfoBox";
 import CustomSelect from "@/components/ui/CustomSelect";
 import GroupedSelect from "@/components/ui/GroupedSelect";
 
@@ -58,10 +56,6 @@ export default function Step2Info({
 
   const dept = DEPT_MAP[value.department as string];
   const isLodgingFixed = dept ? LODGING_FIXED_DEPTS.includes(dept) : false;
-  const isNonLodgingDiscountEligible =
-    dept &&
-    value.lodging === "NON_LODGING" &&
-    NON_LODGING_DISCOUNT.eligibleDepts.includes(dept);
 
   const autoRegType = getRegistrationType(new Date());
   const cellGroups = getCellGroups(value.department as string);
@@ -282,11 +276,6 @@ export default function Step2Info({
             <p className="text-xs text-amber-600 mt-0.5">체크 시 단체 신청 시 다자녀 할인 자녀 인원에 포함됩니다</p>
           </div>
         </label>
-      )}
-
-      {/* 비숙박 할인 안내 */}
-      {isNonLodgingDiscountEligible && value.registrationType !== "DAILY" && (
-        <InfoBox type="success">비숙박 할인 20,000원이 적용됩니다.</InfoBox>
       )}
 
       {/* 가족실 희망 — 단체 신청 + 숙박인 경우만 표시 */}

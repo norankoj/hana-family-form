@@ -146,41 +146,48 @@ export default function PriceTable({ highlights = [] }: PriceTableProps) {
         </p>
         <button
           type="button"
-          onClick={() => setExpanded((v) => !v)}
+          onClick={() => setExpanded(true)}
           className="flex shrink-0 items-center gap-1 rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-100 transition-colors"
         >
-          {expanded ? (
-            <>
-              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
-              </svg>
-              접기
-            </>
-          ) : (
-            <>
-              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-              </svg>
-              크게 보기
-            </>
-          )}
+          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-5h-4m4 0v4m0-4l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+          </svg>
+          크게 보기
         </button>
       </div>
 
-      {/* 인라인 확장 테이블 — 핀치줌 가능 */}
+      {/* 풀스크린 모달 — 핀치줌 자유롭게 */}
       {expanded && (
-        <div className="border-t border-slate-100">
-          <div className="overflow-x-auto p-3">
-            <TableInner highlights={highlights} compact={false} />
+        <div className="fixed inset-0 z-50 flex flex-col bg-white">
+          {/* 모달 헤더 */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 shrink-0">
+            <p className="text-sm font-bold text-slate-700">회비 안내</p>
+            <button
+              type="button"
+              onClick={() => setExpanded(false)}
+              className="flex items-center justify-center h-8 w-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
-          <div className="px-4 pb-3 flex flex-col gap-1 text-xs text-slate-500">
-            <p>
-              <span className="font-semibold text-slate-600">성인A</span> — 2진, 3진, 청년2부 &nbsp;·&nbsp;
-              <span className="font-semibold text-slate-600">성인B</span> — UCM, 청년1부 (숙박 기본 포함)
-            </p>
-            <p className="text-slate-400">
-              선등록 ~07.15 &nbsp;·&nbsp; 일반 07.16~07.24 &nbsp;·&nbsp; 현장 07.25 &nbsp;·&nbsp; 일일 현장 접수
-            </p>
+
+          {/* 표 영역 — 스크롤 + 핀치줌 */}
+          <div className="flex-1 overflow-auto p-4">
+            <TableInner highlights={highlights} compact={false} />
+            <div className="mt-3 flex flex-col gap-1 text-xs text-slate-400">
+              <p>
+                <span className="font-semibold text-slate-500">성인A</span> — 2진, 3진, 청년2부 &nbsp;·&nbsp;
+                <span className="font-semibold text-slate-500">성인B</span> — UCM, 청년1부
+              </p>
+              <p>선등록 ~07.15 &nbsp;·&nbsp; 일반 07.16~07.24 &nbsp;·&nbsp; 현장 07.25</p>
+            </div>
+          </div>
+
+          {/* 안내 문구 */}
+          <div className="shrink-0 px-4 py-3 border-t border-slate-100 text-center">
+            <p className="text-xs text-slate-400">두 손가락으로 확대할 수 있어요</p>
           </div>
         </div>
       )}

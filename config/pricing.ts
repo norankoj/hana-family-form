@@ -71,7 +71,7 @@ export const PRICING: Record<Department, Record<RegistrationType, PriceGrid>> = 
     DAILY:   { NON_LODGING: 40_000, LODGING: 40_000 },
   },
   ADULT_B: {
-    EARLY:   { NON_LODGING: 55_000, LODGING: 75_000 },
+    EARLY:   { NON_LODGING: 60_000, LODGING: 75_000 },
     REGULAR: { NON_LODGING: 65_000, LODGING: 85_000 },
     ONSITE:  { NON_LODGING: 70_000, LODGING: 90_000 },
     DAILY:   { NON_LODGING: 40_000, LODGING: 40_000 },
