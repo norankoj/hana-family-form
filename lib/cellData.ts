@@ -90,11 +90,6 @@ export const CELL_DATA: Record<string, CellGroup[]> = {
     ]),
   ],
 
-  'EM': [
-    group('EM', [
-      'EM1셀', 'EM2셀', 'EM3셀', 'EM4셀',
-    ]),
-  ],
 };
 
 const 기타Group: CellGroup = { groupLabel: '기타', cells: ['기타'] };

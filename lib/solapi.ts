@@ -1,12 +1,12 @@
 import { createHmac, randomBytes } from 'crypto';
 
-const API_KEY    = process.env.SOLAPI_API_KEY    ?? '';
-const API_SECRET = process.env.SOLAPI_API_SECRET ?? '';
-const FROM       = process.env.SOLAPI_FROM       ?? '';
-const PFID       = process.env.SOLAPI_PFID       ?? '';
+const API_KEY    = (process.env.SOLAPI_API_KEY    ?? '').trim();
+const API_SECRET = (process.env.SOLAPI_API_SECRET ?? '').trim();
+const FROM       = (process.env.SOLAPI_FROM       ?? '').trim();
+const PFID       = (process.env.SOLAPI_PFID       ?? '').trim();
 
-export const TEMPLATE_SUBMIT  = process.env.SOLAPI_TEMPLATE_SUBMIT  ?? '';
-export const TEMPLATE_CONFIRM = process.env.SOLAPI_TEMPLATE_CONFIRM ?? '';
+export const TEMPLATE_SUBMIT  = (process.env.SOLAPI_TEMPLATE_SUBMIT  ?? '').trim();
+export const TEMPLATE_CONFIRM = (process.env.SOLAPI_TEMPLATE_CONFIRM ?? '').trim();
 
 function authHeader(): string {
   const date      = new Date().toISOString();
@@ -45,11 +45,7 @@ export async function sendAlimtalk(
       message: {
         to: phone,
         from: FROM,
-        kakaoOptions: {
-          pfId: PFID,
-          templateId,
-          variables,
-        },
+        kakaoOptions: { pfId: PFID, templateId, variables },
       },
     }),
   });

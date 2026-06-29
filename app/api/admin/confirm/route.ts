@@ -4,6 +4,7 @@ import { sendAlimtalk, TEMPLATE_CONFIRM } from '@/lib/solapi';
 
 const APPS_SCRIPT_URL = process.env.APPS_SCRIPT_URL ?? '';
 const ADMIN_PASSWORD  = process.env.ADMIN_PASSWORD  ?? '';
+const BANK_ACCOUNT    = process.env.BANK_ACCOUNT    ?? '';
 
 const VALID_ACTIONS = new Set(['confirm', 'payment']);
 
@@ -60,12 +61,13 @@ export async function POST(req: NextRequest) {
   // ── 확정 알림톡 (action=confirm 일 때만) ──
   if (action === 'confirm' && body.phone && body.name) {
     const members = body.members ?? [body.name];
-    sendAlimtalk(body.phone, TEMPLATE_CONFIRM, {
+    await sendAlimtalk(body.phone, TEMPLATE_CONFIRM, {
       '#{이름}':    body.name,
       '#{등록유형}': body.regType ?? '',
       '#{인원수}':  String(members.length),
       '#{구성원}':  members.join('\n'),
       '#{금액}':    (body.total ?? 0).toLocaleString('ko-KR'),
+      '#{계좌번호}': BANK_ACCOUNT,
     }).catch((e) => console.error('[alimtalk] confirm:', e));
   }
 

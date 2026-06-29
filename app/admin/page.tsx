@@ -67,10 +67,12 @@ function buildGroups(rows: Row[], confirmed: Set<string>, paid: Set<string>): Gr
 
 // ── 부서 통계 맵 ──────────────────────────────────────────────────────────
 const DEPT_GROUPS: { label: string; match: (dept: string) => boolean }[] = [
-  { label: '3진',       match: (d) => d.includes('3진') },
-  { label: '2진',       match: (d) => d.includes('2진') },
+  { label: '3진',       match: (d) => d === '3진' },
+  { label: '2진',       match: (d) => d === '2진' },
   { label: '청년2부',   match: (d) => d.includes('청년2부') },
   { label: '청년1부',   match: (d) => d.includes('청년1부') },
+  { label: 'EM',        match: (d) => d === 'EM' },
+  { label: '새가족',    match: (d) => d.includes('새가족') },
   { label: 'UCM',       match: (d) => d.includes('UCM') || d.includes('대학') },
   { label: 'YCM',       match: (d) => d.includes('YCM') || d.includes('중고등') },
   { label: '조이랜드',  match: (d) => d.includes('조이랜드') || d.includes('초등') },
@@ -497,24 +499,61 @@ function FamilyRoomBoard({ groups }: { groups: Group[] }) {
 }
 
 // ── 부서별 명단 (드릴다운) ───────────────────────────────────────────────
+type DeptSortKey = 'name' | 'cell' | 'regType' | 'lodging' | 'status';
+
 function DeptMemberTable({ groups, match }: { groups: Group[]; match: (d: string) => boolean }) {
-  const members = groups.flatMap((g) =>
+  const [sortKey, setSortKey] = useState<DeptSortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>(null);
+
+  function toggleSort(col: string) {
+    const key = col as DeptSortKey;
+    if (sortKey !== key) { setSortKey(key); setSortDir('asc'); return; }
+    if (sortDir === 'asc') { setSortDir('desc'); return; }
+    setSortKey(null); setSortDir(null);
+  }
+
+  const raw = groups.flatMap((g) =>
     g.rows.filter((r) => match(r.소속)).map((r) => ({ r, g })),
   );
-  if (members.length === 0) return <p className="text-sm text-slate-400 py-6 text-center">해당 부서 신청 인원이 없습니다.</p>;
+
+  const members = useMemo(() => {
+    if (!sortKey || !sortDir) return raw;
+    const m = sortDir === 'asc' ? 1 : -1;
+    return [...raw].sort((a, b) => {
+      switch (sortKey) {
+        case 'name':    return a.r.이름.localeCompare(b.r.이름, 'ko') * m;
+        case 'cell':    return cellCode(a.r.셀번호).localeCompare(cellCode(b.r.셀번호)) * m;
+        case 'regType': return a.r.등록유형.localeCompare(b.r.등록유형, 'ko') * m;
+        case 'lodging': return a.r.숙박.localeCompare(b.r.숙박, 'ko') * m;
+        case 'status':  return ((a.g.confirmed ? 2 : a.g.paid ? 1 : 0) - (b.g.confirmed ? 2 : b.g.paid ? 1 : 0)) * m;
+        default: return 0;
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [raw.length, sortKey, sortDir, groups]);
+
+  if (raw.length === 0) return <p className="text-sm text-slate-400 py-6 text-center">해당 부서 신청 인원이 없습니다.</p>;
+
+  const th = (col: string, label: string, align?: 'left' | 'center' | 'right') => (
+    <SortTh col={col} label={label} active={sortKey === col} dir={sortDir} onSort={toggleSort} align={align} />
+  );
+  const plainTh = (label: string, align: 'left' | 'center' | 'right' = 'center') => (
+    <th className={`border-b border-slate-200 px-3 py-2.5 whitespace-nowrap text-slate-500 text-${align}`}>{label}</th>
+  );
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm border-collapse">
         <thead>
-          <tr className="bg-slate-50 text-xs text-slate-500">
-            <th className="border-b border-slate-200 px-3 py-2.5 text-left whitespace-nowrap">이름</th>
-            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">소속</th>
-            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">셀번호</th>
-            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">구분</th>
-            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">등록유형</th>
-            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">숙박</th>
-            <th className="border-b border-slate-200 px-3 py-2.5 text-left whitespace-nowrap">소속 신청(대표자)</th>
-            <th className="border-b border-slate-200 px-3 py-2.5 whitespace-nowrap">상태</th>
+          <tr className="bg-slate-50 text-xs">
+            {th('name',    '이름', 'left')}
+            {plainTh('소속')}
+            {th('cell',    '셀번호')}
+            {plainTh('구분')}
+            {th('regType', '등록유형')}
+            {th('lodging', '숙박')}
+            {plainTh('소속 신청(대표자)', 'left')}
+            {th('status',  '상태')}
           </tr>
         </thead>
         <tbody>
@@ -522,7 +561,7 @@ function DeptMemberTable({ groups, match }: { groups: Group[]; match: (d: string
             <tr key={i} className="border-b border-slate-100 hover:bg-slate-50">
               <td className="px-3 py-2.5 font-semibold text-slate-800 whitespace-nowrap">{r.이름}</td>
               <td className="px-3 py-2.5 text-center text-slate-600 whitespace-nowrap">{r.소속}</td>
-              <td className="px-3 py-2.5 text-center text-slate-500">{r.셀번호 || '—'}</td>
+              <td className="px-3 py-2.5 text-center text-slate-500">{cellCode(r.셀번호) || '—'}</td>
               <td className="px-3 py-2.5 text-center">
                 <span className={`inline-block rounded-sm px-2 py-0.5 text-xs font-semibold ${g.type === '개인' ? 'bg-slate-100 text-slate-500' : r.구분 === '대표자' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>
                   {g.type === '개인' ? '개인' : r.구분}
@@ -778,7 +817,7 @@ function Dashboard({ password, onLogout }: { password: string; onLogout: () => v
                 <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
                   부서별 현황 <span className="text-slate-300 normal-case font-normal">· 클릭하면 명단을 볼 수 있어요</span>
                 </h2>
-                <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-2">
+                <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-11 gap-2">
                   {deptStats.map(({ label, count }) => {
                     const active = deptFilter === label;
                     return (
