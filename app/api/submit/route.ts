@@ -3,6 +3,28 @@ import type { FormState } from '@/lib/types';
 import { calcSummary } from '@/lib/calculations';
 import { DEPT_MAP } from '@/config/pricing';
 import { rateLimit, clientIp } from '@/lib/rateLimit';
+import { sendAlimtalk, TEMPLATE_SUBMIT } from '@/lib/solapi';
+
+const BANK_ACCOUNT = process.env.BANK_ACCOUNT ?? '';
+
+const DEPT_DISPLAY: Record<string, string> = {
+  '3진':                    '3진',
+  '2진':                    '2진',
+  '1진 청년2부':            '청년2부',
+  'EM':                     'EM',
+  '새가족(셀소속 전)':      '새가족',
+  '대학부(UCM)':            'UCM',
+  '1진 청년1부':            '청년1부',
+  '중고등부(YCM)':          'YCM',
+  '초등부(조이랜드)':       '초등부',
+  '유치부(40개월~미취학)':  '유치부',
+  '베이비(13개월~39개월)':  '베이비',
+  '베이비(~12개월)':        '베이비',
+};
+
+function memberLabel(name: string, dept: string): string {
+  return `${name} (${DEPT_DISPLAY[dept] ?? dept})`;
+}
 
 const APPS_SCRIPT_URL = process.env.APPS_SCRIPT_URL ?? '';
 
@@ -161,6 +183,23 @@ export async function POST(req: NextRequest) {
   } catch {
     console.warn('[submit] response is not JSON, treating as success');
   }
+
+  // ── 신청완료 알림톡 (비동기 — 실패해도 신청은 성공) ──
+  const rep      = body.representative;
+  const summary  = calcSummary(rep, body.companions ?? []);
+  const allNames = [
+    memberLabel(rep.name, rep.department as string),
+    ...(body.companions ?? []).map((c) => memberLabel(c.name, c.department as string)),
+  ];
+
+  sendAlimtalk(rep.phone, TEMPLATE_SUBMIT, {
+    '#{이름}':    rep.name,
+    '#{등록유형}': REG_TYPE_KO[rep.registrationType] ?? rep.registrationType,
+    '#{인원수}':  String(allNames.length),
+    '#{구성원}':  allNames.join('\n'),
+    '#{금액}':    summary.total.toLocaleString('ko-KR'),
+    '#{계좌번호}': BANK_ACCOUNT,
+  }).catch((e) => console.error('[alimtalk] submit:', e));
 
   return NextResponse.json({ ok: true });
 }

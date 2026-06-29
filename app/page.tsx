@@ -471,7 +471,7 @@ export default function HomePage() {
                       <p className="text-sm font-bold text-slate-800">
                         조이랜드{" "}
                         <span className="text-xs font-normal text-slate-400">
-                          초등부
+                          숙박이 원칙
                         </span>
                       </p>
                     </div>

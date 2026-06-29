@@ -291,7 +291,7 @@ function IndividualTable({ groups, password, onConfirm, onPaid, onDelete }: {
                 </td>
                 <td className="px-3 py-2.5 text-center">
                   {g.confirmed ? <span className="text-blue-600 font-bold text-xs">✓ 확정</span>
-                               : <ConfirmButton groupId={g.groupId} password={password} onConfirm={onConfirm} />}
+                               : <ConfirmButton groupId={g.groupId} password={password} group={g} onConfirm={onConfirm} />}
                 </td>
                 <td className="px-3 py-2.5 text-center">
                   <DeleteButton groupId={g.groupId} label={rep.이름} password={password} onDelete={onDelete} />
@@ -331,7 +331,7 @@ function GroupCard({ g, password, onConfirm, onPaid, onDelete }: {
           {g.paid ? <span className="inline-flex items-center rounded-sm bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">✓ 입금</span>
                   : <PaymentButton groupId={g.groupId} password={password} onPaid={onPaid} />}
           {g.confirmed ? <span className="inline-flex items-center rounded-sm bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">✓ 확정</span>
-                       : <ConfirmButton groupId={g.groupId} password={password} onConfirm={onConfirm} />}
+                       : <ConfirmButton groupId={g.groupId} password={password} group={g} onConfirm={onConfirm} />}
           <DeleteButton groupId={g.groupId} label={`${g.rep.이름} 외 ${memberCount - 1}명`} password={password} onDelete={onDelete} />
         </div>
       </div>
@@ -527,18 +527,33 @@ function DeptMemberTable({ groups, match }: { groups: Group[]; match: (d: string
 }
 
 // ── 확정 버튼 ──────────────────────────────────────────────────────────────
-function ConfirmButton({ groupId, password, onConfirm }: {
-  groupId: string; password: string; onConfirm: (id: string) => void;
+function ConfirmButton({ groupId, password, group, onConfirm }: {
+  groupId: string; password: string; group: Group; onConfirm: (id: string) => void;
 }) {
   const [loading, setLoading] = useState(false);
   async function handleClick() {
     if (!confirm('이 신청을 확정하시겠습니까?\n(카카오톡 알림이 발송됩니다)')) return;
     setLoading(true);
+    const DEPT_SHORT: Record<string, string> = {
+      '대학부(UCM)': 'UCM', '중고등부(YCM)': 'YCM', '초등부(조이랜드)': '초등부',
+      '유치부(40개월~미취학)': '유치부', '베이비(13개월~39개월)': '베이비', '베이비(~12개월)': '베이비',
+      '새가족(셀소속 전)': '새가족',
+    };
+    const members = group.rows
+      .filter((r) => r.구분 !== '할인')
+      .map((r) => `${r.이름} (${DEPT_SHORT[r.소속] ?? r.소속})`);
     try {
       const res = await fetch('/api/admin/confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password, groupId, action: 'confirm' }),
+        body: JSON.stringify({
+          password, groupId, action: 'confirm',
+          name:    group.rep.이름,
+          phone:   group.rep.연락처,
+          regType: group.rep.등록유형,
+          members,
+          total:   group.total,
+        }),
       });
       if (res.ok) onConfirm(groupId);
       else alert('확정 처리 중 오류가 발생했습니다.');

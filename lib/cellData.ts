@@ -24,7 +24,7 @@ export const CELL_DATA: Record<string, CellGroup[]> = {
     ]),
     group('3B자매', [
       '3B02 김원조', '3B04 박주희', '3B06 정혜림', '3B08 최영희',
-      '3B10 정윤영', '3B12 이주영', '3B14 황혜경',
+      '3B10 정윤영', '3B12 이주영', '3B14 황혜경', '3B16 김근애',
     ]),
     group('3B형제', [
       '3B01 이동준', '3B03 변창섭', '3B05 도욱호', '3B07 오성근', '3B09 오남현',
@@ -97,6 +97,10 @@ export const CELL_DATA: Record<string, CellGroup[]> = {
   ],
 };
 
+const 기타Group: CellGroup = { groupLabel: '기타', cells: ['기타'] };
+
 export function getCellGroups(department: string): CellGroup[] | null {
-  return CELL_DATA[department] ?? null;
+  const data = CELL_DATA[department];
+  if (!data) return null;
+  return [...data, 기타Group];
 }
