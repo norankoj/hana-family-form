@@ -211,7 +211,20 @@ function SortTh({ label, col, active, dir, onSort, align = 'left' }: {
 }
 
 // ── 개인 신청 테이블 ──────────────────────────────────────────────────────
-type IndivSortKey = 'status' | 'name' | 'dept' | 'regType' | 'lodging' | 'amount' | 'date';
+type IndivSortKey = 'status' | 'name' | 'dept' | 'cell' | 'regType' | 'lodging' | 'amount' | 'date';
+
+// "1A10 김보미" → "1A10" (숫자+문자 코드만 추출해서 정렬)
+function cellCode(s: string): string { return s?.split(' ')[0] ?? ''; }
+
+// UCM·YCM은 셀번호 대신 소속명 표시
+function cellDisplay(셀번호: string, 소속: string): string {
+  if (!셀번호) {
+    if (소속.includes('UCM') || 소속.includes('대학')) return 'UCM';
+    if (소속.includes('YCM') || 소속.includes('중고등')) return 'YCM';
+    return '—';
+  }
+  return 셀번호;
+}
 
 function IndividualTable({ groups, password, onConfirm, onPaid, onDelete }: {
   groups: Group[]; password: string; onConfirm: (id: string) => void; onPaid: (id: string) => void; onDelete: (id: string) => void;
@@ -236,6 +249,7 @@ function IndividualTable({ groups, password, onConfirm, onPaid, onDelete }: {
         case 'dept':    return a.rep.소속.localeCompare(b.rep.소속, 'ko') * m;
         case 'regType': return a.rep.등록유형.localeCompare(b.rep.등록유형, 'ko') * m;
         case 'lodging': return a.rep.숙박.localeCompare(b.rep.숙박, 'ko') * m;
+        case 'cell':    return cellCode(a.rep.셀번호).localeCompare(cellCode(b.rep.셀번호)) * m;
         case 'amount':  return (a.total - b.total) * m;
         case 'date':    return a.신청일시.localeCompare(b.신청일시) * m;
         default: return 0;
@@ -261,7 +275,7 @@ function IndividualTable({ groups, password, onConfirm, onPaid, onDelete }: {
             {th('name',    '이름')}
             {plainTh('연락처')}
             {th('dept',    '소속', 'center')}
-            {plainTh('셀번호')}
+            {th('cell', '셀번호', 'center')}
             {th('regType', '등록유형', 'center')}
             {th('lodging', '숙박', 'center')}
             {th('amount',  '금액', 'right')}
@@ -280,7 +294,7 @@ function IndividualTable({ groups, password, onConfirm, onPaid, onDelete }: {
                 <td className="px-3 py-2.5 font-semibold text-slate-800">{rep.이름}</td>
                 <td className="px-3 py-2.5 text-center whitespace-nowrap text-slate-600">{rep.연락처}</td>
                 <td className="px-3 py-2.5 text-center whitespace-nowrap text-slate-600">{rep.소속}</td>
-                <td className="px-3 py-2.5 text-center text-slate-500">{rep.셀번호 || '—'}</td>
+                <td className="px-3 py-2.5 text-center text-slate-500">{cellDisplay(rep.셀번호, rep.소속)}</td>
                 <td className="px-3 py-2.5 text-center whitespace-nowrap text-slate-600">{rep.등록유형}</td>
                 <td className="px-3 py-2.5 text-center"><LodgeBadge value={rep.숙박} /></td>
                 <td className="px-3 py-2.5 text-right font-bold text-slate-800 whitespace-nowrap">{krw(g.total)}</td>
