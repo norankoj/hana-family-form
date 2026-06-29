@@ -192,7 +192,7 @@ export async function POST(req: NextRequest) {
     ...(body.companions ?? []).map((c) => memberLabel(c.name, c.department as string)),
   ];
 
-  sendAlimtalk(rep.phone, TEMPLATE_SUBMIT, {
+  await sendAlimtalk(rep.phone, TEMPLATE_SUBMIT, {
     '#{이름}':    rep.name,
     '#{등록유형}': REG_TYPE_KO[rep.registrationType] ?? rep.registrationType,
     '#{인원수}':  String(allNames.length),
