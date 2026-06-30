@@ -213,34 +213,6 @@ function SortTh({ label, col, active, dir, onSort, align = 'left' }: {
   );
 }
 
-// ── 페이지네이션 ─────────────────────────────────────────────────────────
-const PAGE_SIZE = 20;
-
-function Pagination({ page, total, pageSize, onChange }: {
-  page: number; total: number; pageSize: number; onChange: (p: number) => void;
-}) {
-  const totalPages = Math.ceil(total / pageSize);
-  if (totalPages <= 1) return null;
-  const start = (page - 1) * pageSize + 1;
-  const end   = Math.min(page * pageSize, total);
-  return (
-    <div className="flex items-center justify-between border-t border-slate-100 px-4 py-2.5 text-xs text-slate-500">
-      <span>{start}–{end} / 총 {total}건</span>
-      <div className="flex items-center gap-0.5">
-        <button onClick={() => onChange(1)} disabled={page === 1}
-          className="rounded px-2 py-1 hover:bg-slate-100 disabled:opacity-30">«</button>
-        <button onClick={() => onChange(page - 1)} disabled={page === 1}
-          className="rounded px-2 py-1 hover:bg-slate-100 disabled:opacity-30">‹</button>
-        <span className="px-2.5 font-semibold text-slate-700">{page} / {totalPages}</span>
-        <button onClick={() => onChange(page + 1)} disabled={page === totalPages}
-          className="rounded px-2 py-1 hover:bg-slate-100 disabled:opacity-30">›</button>
-        <button onClick={() => onChange(totalPages)} disabled={page === totalPages}
-          className="rounded px-2 py-1 hover:bg-slate-100 disabled:opacity-30">»</button>
-      </div>
-    </div>
-  );
-}
-
 // ── 개인 신청 테이블 ──────────────────────────────────────────────────────
 type IndivSortKey = 'status' | 'name' | 'dept' | 'cell' | 'regType' | 'lodging' | 'amount' | 'date';
 
@@ -262,15 +234,12 @@ function IndividualTable({ groups, password, onConfirm, onPaid, onDelete, onEdit
 }) {
   const [sortKey, setSortKey] = useState<IndivSortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
-  const [page, setPage] = useState(1);
-
-  useEffect(() => { setPage(1); }, [groups]);
 
   function toggleSort(col: string) {
     const key = col as IndivSortKey;
-    if (sortKey !== key) { setSortKey(key); setSortDir('asc'); setPage(1); return; }
-    if (sortDir === 'asc') { setSortDir('desc'); setPage(1); return; }
-    setSortKey(null); setSortDir(null); setPage(1);
+    if (sortKey !== key) { setSortKey(key); setSortDir('asc'); return; }
+    if (sortDir === 'asc') { setSortDir('desc'); return; }
+    setSortKey(null); setSortDir(null);
   }
 
   const sorted = useMemo(() => {
@@ -290,8 +259,6 @@ function IndividualTable({ groups, password, onConfirm, onPaid, onDelete, onEdit
       }
     });
   }, [groups, sortKey, sortDir]);
-
-  const paged = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   if (groups.length === 0) return <p className="text-sm text-slate-400 py-6 text-center">신청 내역이 없습니다.</p>;
 
@@ -323,7 +290,7 @@ function IndividualTable({ groups, password, onConfirm, onPaid, onDelete, onEdit
             </tr>
           </thead>
           <tbody>
-            {paged.map((g) => {
+            {sorted.map((g) => {
               const rep = g.rep;
               return (
                 <tr key={g.groupId} className={`${g.confirmed ? 'bg-emerald-50/40' : 'bg-white hover:bg-slate-50'} border-b border-slate-100`}>
@@ -359,7 +326,6 @@ function IndividualTable({ groups, password, onConfirm, onPaid, onDelete, onEdit
           </tbody>
         </table>
       </div>
-      <Pagination page={page} total={sorted.length} pageSize={PAGE_SIZE} onChange={setPage} />
     </div>
   );
 }
@@ -447,14 +413,11 @@ function GroupTable({ groups, password, onConfirm, onPaid, onDelete, onEdit }: {
 }) {
   const [sortKey, setSortKey] = useState<GroupSortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
-  const [page, setPage] = useState(1);
-
-  useEffect(() => { setPage(1); }, [groups]);
 
   function toggleSort(key: GroupSortKey) {
-    if (sortKey !== key) { setSortKey(key); setSortDir('asc'); setPage(1); return; }
-    if (sortDir === 'asc') { setSortDir('desc'); setPage(1); return; }
-    setSortKey(null); setSortDir(null); setPage(1);
+    if (sortKey !== key) { setSortKey(key); setSortDir('asc'); return; }
+    if (sortDir === 'asc') { setSortDir('desc'); return; }
+    setSortKey(null); setSortDir(null);
   }
 
   const sorted = useMemo(() => {
@@ -471,8 +434,6 @@ function GroupTable({ groups, password, onConfirm, onPaid, onDelete, onEdit }: {
       }
     });
   }, [groups, sortKey, sortDir]);
-
-  const paged = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   if (groups.length === 0) return <p className="text-sm text-slate-400 py-6 text-center">신청 내역이 없습니다.</p>;
 
@@ -501,16 +462,15 @@ function GroupTable({ groups, password, onConfirm, onPaid, onDelete, onEdit }: {
           );
         })}
         {sortKey && (
-          <button type="button" onClick={() => { setSortKey(null); setSortDir(null); setPage(1); }}
+          <button type="button" onClick={() => { setSortKey(null); setSortDir(null); }}
             className="text-xs text-slate-400 hover:text-slate-600 ml-1">
             초기화
           </button>
         )}
       </div>
       <div className="overflow-auto max-h-[560px] flex flex-col gap-3 pr-0.5">
-        {paged.map((g) => <GroupCard key={g.groupId} g={g} password={password} onConfirm={onConfirm} onPaid={onPaid} onDelete={onDelete} onEdit={onEdit} />)}
+        {sorted.map((g) => <GroupCard key={g.groupId} g={g} password={password} onConfirm={onConfirm} onPaid={onPaid} onDelete={onDelete} onEdit={onEdit} />)}
       </div>
-      <Pagination page={page} total={sorted.length} pageSize={PAGE_SIZE} onChange={setPage} />
     </div>
   );
 }
@@ -927,8 +887,8 @@ function Dashboard({ password, onLogout }: { password: string; onLogout: () => v
   const [paid, setPaid]           = useState<Set<string>>(new Set());
   const [editGroup, setEditGroup] = useState<Group | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     setError('');
     try {
       const res = await fetch('/api/admin/data', { headers: authHeaders(password) });
@@ -939,9 +899,9 @@ function Dashboard({ password, onLogout }: { password: string; onLogout: () => v
       setConfirmed(new Set(data.filter((r) => r.확정 === '확정').map((r) => r.groupId)));
       setPaid(new Set(data.filter((r) => r.입금확인 === '확인').map((r) => r.groupId)));
     } catch {
-      setError('데이터를 불러오지 못했습니다.');
+      if (!silent) setError('데이터를 불러오지 못했습니다.');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [password]);
 
@@ -986,7 +946,7 @@ function Dashboard({ password, onLogout }: { password: string; onLogout: () => v
   return (
     <div className="fixed inset-0 z-50 overflow-auto bg-slate-50">
       {editGroup && (
-        <EditModal group={editGroup} password={password} onClose={() => setEditGroup(null)} onSaved={load} />
+        <EditModal group={editGroup} password={password} onClose={() => setEditGroup(null)} onSaved={() => load(true)} />
       )}
       {/* 헤더 */}
       <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
@@ -1003,7 +963,7 @@ function Dashboard({ password, onLogout }: { password: string; onLogout: () => v
               </svg>
               엑셀(CSV)
             </button>
-            <button type="button" onClick={load}
+            <button type="button" onClick={() => load()}
               className="flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-200 transition-colors">
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h5M20 20v-5h-5M4 9a9 9 0 0115 0M20 15a9 9 0 01-15 0" />
