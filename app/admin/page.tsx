@@ -1,5 +1,6 @@
 'use client';
 import { useState, useMemo, useEffect, useCallback } from 'react';
+import { PRICING, DEPT_MAP, LODGING_FIXED_DEPTS, MULTI_CHILD_DISCOUNT, type Department, type RegistrationType, type LodgingType } from '@/config/pricing';
 
 // ── 타입 ────────────────────────────────────────────────────────────────────
 interface Row {
@@ -256,8 +257,8 @@ function cellDisplay(셀번호: string, 소속: string): string {
   return 셀번호;
 }
 
-function IndividualTable({ groups, password, onConfirm, onPaid, onDelete }: {
-  groups: Group[]; password: string; onConfirm: (id: string) => void; onPaid: (id: string) => void; onDelete: (id: string) => void;
+function IndividualTable({ groups, password, onConfirm, onPaid, onDelete, onEdit }: {
+  groups: Group[]; password: string; onConfirm: (id: string) => void; onPaid: (id: string) => void; onDelete: (id: string) => void; onEdit: (g: Group) => void;
 }) {
   const [sortKey, setSortKey] = useState<IndivSortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
@@ -344,7 +345,13 @@ function IndividualTable({ groups, password, onConfirm, onPaid, onDelete }: {
                                  : <ConfirmButton groupId={g.groupId} password={password} group={g} onConfirm={onConfirm} />}
                   </td>
                   <td className="px-3 py-2.5 text-center">
-                    <DeleteButton groupId={g.groupId} label={rep.이름} password={password} onDelete={onDelete} />
+                    <div className="flex items-center justify-center gap-1.5">
+                      <button type="button" onClick={() => onEdit(g)}
+                        className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors whitespace-nowrap">
+                        수정
+                      </button>
+                      <DeleteButton groupId={g.groupId} label={rep.이름} password={password} onDelete={onDelete} />
+                    </div>
                   </td>
                 </tr>
               );
@@ -358,8 +365,8 @@ function IndividualTable({ groups, password, onConfirm, onPaid, onDelete }: {
 }
 
 // ── 단체 신청 카드 ──────────────────────────────────────────────────────
-function GroupCard({ g, password, onConfirm, onPaid, onDelete }: {
-  g: Group; password: string; onConfirm: (id: string) => void; onPaid: (id: string) => void; onDelete: (id: string) => void;
+function GroupCard({ g, password, onConfirm, onPaid, onDelete, onEdit }: {
+  g: Group; password: string; onConfirm: (id: string) => void; onPaid: (id: string) => void; onDelete: (id: string) => void; onEdit: (g: Group) => void;
 }) {
   const [open, setOpen] = useState(false);
   const memberCount = g.rows.filter((r) => r.구분 !== '할인').length;
@@ -384,6 +391,10 @@ function GroupCard({ g, password, onConfirm, onPaid, onDelete }: {
                   : <PaymentButton groupId={g.groupId} password={password} onPaid={onPaid} />}
           {g.confirmed ? <span className="inline-flex items-center rounded-sm bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">✓ 확정</span>
                        : <ConfirmButton groupId={g.groupId} password={password} group={g} onConfirm={onConfirm} />}
+          <button type="button" onClick={() => onEdit(g)}
+            className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors whitespace-nowrap">
+            수정
+          </button>
           <DeleteButton groupId={g.groupId} label={`${g.rep.이름} 외 ${memberCount - 1}명`} password={password} onDelete={onDelete} />
         </div>
       </div>
@@ -431,8 +442,8 @@ function GroupCard({ g, password, onConfirm, onPaid, onDelete }: {
 
 type GroupSortKey = 'status' | 'name' | 'count' | 'amount' | 'date';
 
-function GroupTable({ groups, password, onConfirm, onPaid, onDelete }: {
-  groups: Group[]; password: string; onConfirm: (id: string) => void; onPaid: (id: string) => void; onDelete: (id: string) => void;
+function GroupTable({ groups, password, onConfirm, onPaid, onDelete, onEdit }: {
+  groups: Group[]; password: string; onConfirm: (id: string) => void; onPaid: (id: string) => void; onDelete: (id: string) => void; onEdit: (g: Group) => void;
 }) {
   const [sortKey, setSortKey] = useState<GroupSortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
@@ -497,7 +508,7 @@ function GroupTable({ groups, password, onConfirm, onPaid, onDelete }: {
         )}
       </div>
       <div className="overflow-auto max-h-[560px] flex flex-col gap-3 pr-0.5">
-        {paged.map((g) => <GroupCard key={g.groupId} g={g} password={password} onConfirm={onConfirm} onPaid={onPaid} onDelete={onDelete} />)}
+        {paged.map((g) => <GroupCard key={g.groupId} g={g} password={password} onConfirm={onConfirm} onPaid={onPaid} onDelete={onDelete} onEdit={onEdit} />)}
       </div>
       <Pagination page={page} total={sorted.length} pageSize={PAGE_SIZE} onChange={setPage} />
     </div>
@@ -619,6 +630,174 @@ function DeptMemberTable({ groups, match }: { groups: Group[]; match: (d: string
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+// ── 수정 모달 (유형/숙박 수정 + 금액 자동계산) ──────────────────────────────
+const REG_TYPE_TO_CODE: Record<string, RegistrationType> = {
+  '선등록': 'EARLY', '일반등록': 'REGULAR', '현장등록': 'ONSITE', '일일등록': 'DAILY',
+};
+
+// 사역자 할인 금액 (admin 전용 — 신청 폼에는 노출되지 않음)
+const MINISTRY_PRICE: Record<Department, number> = {
+  ADULT_A:   40_000,
+  ADULT_B:   40_000,
+  YCM:       37_500,
+  JOYLAND:   35_000,
+  KINDER:    25_000,
+  BABY_PAID:  7_500,
+  BABY_FREE:      0,
+};
+
+interface EditRow { 이름: string; 소속: string; 구분: string; 등록유형: string; 숙박: string; }
+
+function calcEditPrices(editRows: EditRow[]): { prices: number[]; discount: number; total: number } {
+  const prices = editRows.map((m) => {
+    const dept = DEPT_MAP[m.소속];
+    if (!dept) return 0;
+    // 사역자는 별도 요금표 적용 (숙박 무관)
+    if (m.등록유형 === '사역자') return MINISTRY_PRICE[dept];
+    const regType = REG_TYPE_TO_CODE[m.등록유형] as RegistrationType | undefined;
+    if (!regType) return 0;
+    const lodging: LodgingType = m.숙박 === '숙박' ? 'LODGING' : 'NON_LODGING';
+    return PRICING[dept][regType][lodging];
+  });
+  const subtotal = prices.reduce((s, p) => s + p, 0);
+  // 사역자는 다자녀 할인 대상에서 제외
+  const childCount = editRows.filter((m) => {
+    if (m.등록유형 === '사역자') return false;
+    const dept = DEPT_MAP[m.소속];
+    return dept && MULTI_CHILD_DISCOUNT.eligibleChildDepts.includes(dept);
+  }).length;
+  let discountRate = 0;
+  for (const tier of MULTI_CHILD_DISCOUNT.tiers) {
+    if (childCount >= tier.minChildren) { discountRate = tier.rate; break; }
+  }
+  const discount = Math.floor(subtotal * discountRate);
+  return { prices, discount, total: subtotal - discount };
+}
+
+function EditModal({ group, password, onClose, onSaved }: {
+  group: Group; password: string; onClose: () => void; onSaved: () => void;
+}) {
+  const [editRows, setEditRows] = useState<EditRow[]>(() =>
+    group.rows
+      .filter((r) => r.구분 !== '할인')
+      .map((r) => ({ 이름: r.이름, 소속: r.소속, 구분: r.구분, 등록유형: r.등록유형, 숙박: r.숙박 })),
+  );
+  const [saving, setSaving] = useState(false);
+
+  function update(i: number, field: keyof Pick<EditRow, '등록유형' | '숙박'>, value: string) {
+    setEditRows((prev) => prev.map((m, idx) => idx === i ? { ...m, [field]: value } : m));
+  }
+
+  const { prices, discount, total } = useMemo(() => calcEditPrices(editRows), [editRows]);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const res = await fetch('/api/admin/edit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          password,
+          groupId: group.groupId,
+          members: editRows.map((m, i) => ({ 이름: m.이름, 등록유형: m.등록유형, 숙박: m.숙박, 금액: prices[i] })),
+          discountAmount: discount,
+        }),
+      });
+      if (res.ok) { onSaved(); onClose(); }
+      else { const j = await res.json().catch(() => ({})); alert(j.error ?? '수정 중 오류가 발생했습니다.'); }
+    } catch { alert('수정 중 오류가 발생했습니다.'); }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="w-full max-w-lg rounded-lg bg-white shadow-xl overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <h2 className="font-bold text-slate-900 text-sm">신청 수정 — {group.rep.이름}</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-lg leading-none">✕</button>
+        </div>
+        {editRows.length > 1 && (
+          <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 border-b border-slate-100">
+            <span className="text-xs text-slate-400">{editRows.length}명</span>
+            <button
+              type="button"
+              onClick={() => setEditRows((prev) => prev.map((m) => ({ ...m, 등록유형: '사역자' })))}
+              className="flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-100 transition-colors"
+            >
+              전체 사역자 적용
+            </button>
+          </div>
+        )}
+        <div className="flex flex-col gap-2 p-4 max-h-[60vh] overflow-auto">
+          {editRows.map((m, i) => {
+            const isMinistry = m.등록유형 === '사역자';
+            return (
+              <div key={i} className={`grid grid-cols-[1fr_auto_auto_auto] items-center gap-2 rounded-sm border px-3 py-2.5 ${isMinistry ? 'border-purple-200 bg-purple-50/40' : 'border-slate-200'}`}>
+                <div className="min-w-0">
+                  <p className="font-semibold text-slate-800 text-sm truncate">{m.이름}</p>
+                  <p className="text-xs text-slate-400 truncate">{m.소속}</p>
+                </div>
+                <select
+                  value={m.등록유형}
+                  onChange={(e) => update(i, '등록유형', e.target.value)}
+                  className={`rounded border px-2 py-1.5 text-xs focus:outline-none ${isMinistry ? 'border-purple-300 bg-purple-50 text-purple-700 focus:border-purple-500' : 'border-slate-300 focus:border-blue-500'}`}
+                >
+                  <optgroup label="일반">
+                    <option value="선등록">선등록</option>
+                    <option value="일반등록">일반등록</option>
+                    <option value="현장등록">현장등록</option>
+                    <option value="일일등록">일일등록</option>
+                  </optgroup>
+                  <optgroup label="관리자 전용">
+                    <option value="사역자">사역자</option>
+                  </optgroup>
+                </select>
+                <select
+                  value={m.숙박}
+                  onChange={(e) => update(i, '숙박', e.target.value)}
+                  className="rounded border border-slate-300 px-2 py-1.5 text-xs focus:border-blue-500 focus:outline-none"
+                >
+                  <option value="숙박">숙박</option>
+                  <option value="비숙박">비숙박</option>
+                </select>
+                <div className="text-right min-w-[64px]">
+                  {isMinistry && (
+                    <p className="text-[10px] text-purple-500 font-semibold leading-none mb-0.5">사역자</p>
+                  )}
+                  <p className={`font-bold text-sm whitespace-nowrap ${isMinistry ? 'text-purple-700' : 'text-slate-700'}`}>{krw(prices[i])}</p>
+                </div>
+              </div>
+            );
+          })}
+          {discount > 0 && (
+            <div className="flex items-center justify-between px-3 py-2 rounded-sm bg-slate-50 text-sm">
+              <span className="text-slate-500">다자녀 할인</span>
+              <span className="font-bold text-blue-600">-{krw(discount)}</span>
+            </div>
+          )}
+          <div className="flex items-center justify-between px-3 py-2.5 rounded-sm bg-blue-50">
+            <span className="text-sm font-bold text-slate-700">합계</span>
+            <span className="text-base font-bold text-blue-700">{krw(total)}</span>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 px-5 py-4 border-t border-slate-100">
+          <button onClick={onClose} disabled={saving}
+            className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+            취소
+          </button>
+          <button onClick={handleSave} disabled={saving}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-50">
+            {saving ? '저장 중…' : '저장'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -746,6 +925,7 @@ function Dashboard({ password, onLogout }: { password: string; onLogout: () => v
   const [deptFilter, setDeptFilter] = useState<string | null>(null); // 부서별 드릴다운
   const [confirmed, setConfirmed] = useState<Set<string>>(new Set());
   const [paid, setPaid]           = useState<Set<string>>(new Set());
+  const [editGroup, setEditGroup] = useState<Group | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -805,6 +985,9 @@ function Dashboard({ password, onLogout }: { password: string; onLogout: () => v
 
   return (
     <div className="fixed inset-0 z-50 overflow-auto bg-slate-50">
+      {editGroup && (
+        <EditModal group={editGroup} password={password} onClose={() => setEditGroup(null)} onSaved={load} />
+      )}
       {/* 헤더 */}
       <div className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="max-w-screen-2xl mx-auto px-6 py-3 flex items-center justify-between">
@@ -935,9 +1118,9 @@ function Dashboard({ password, onLogout }: { password: string; onLogout: () => v
               {/* 테이블 영역 */}
               <div className="rounded-sm bg-white border border-slate-200 p-4">
                 {tab === 'individual' ? (
-                  <IndividualTable groups={filtered} password={password} onConfirm={handleConfirm} onPaid={handlePaid} onDelete={handleDelete} />
+                  <IndividualTable groups={filtered} password={password} onConfirm={handleConfirm} onPaid={handlePaid} onDelete={handleDelete} onEdit={setEditGroup} />
                 ) : tab === 'group' ? (
-                  <GroupTable groups={filtered} password={password} onConfirm={handleConfirm} onPaid={handlePaid} onDelete={handleDelete} />
+                  <GroupTable groups={filtered} password={password} onConfirm={handleConfirm} onPaid={handlePaid} onDelete={handleDelete} onEdit={setEditGroup} />
                 ) : tab === 'family' ? (
                   filtered.length === 0 ? (
                     <p className="text-sm text-slate-400 py-6 text-center">가족실 신청 내역이 없습니다.</p>
@@ -946,13 +1129,13 @@ function Dashboard({ password, onLogout }: { password: string; onLogout: () => v
                       {filtered.some((g) => g.type === '개인') && (
                         <>
                           <h3 className="text-sm font-bold text-slate-700 mb-3">개인 신청 (가족실)</h3>
-                          <IndividualTable groups={filtered.filter((g) => g.type === '개인')} password={password} onConfirm={handleConfirm} onPaid={handlePaid} onDelete={handleDelete} />
+                          <IndividualTable groups={filtered.filter((g) => g.type === '개인')} password={password} onConfirm={handleConfirm} onPaid={handlePaid} onDelete={handleDelete} onEdit={setEditGroup} />
                         </>
                       )}
                       {filtered.some((g) => g.type === '단체') && (
                         <div className={filtered.some((g) => g.type === '개인') ? 'mt-6 pt-6 border-t border-slate-100' : ''}>
                           <h3 className="text-sm font-bold text-slate-700 mb-3">단체 신청 (가족실)</h3>
-                          <GroupTable groups={filtered.filter((g) => g.type === '단체')} password={password} onConfirm={handleConfirm} onPaid={handlePaid} onDelete={handleDelete} />
+                          <GroupTable groups={filtered.filter((g) => g.type === '단체')} password={password} onConfirm={handleConfirm} onPaid={handlePaid} onDelete={handleDelete} onEdit={setEditGroup} />
                         </div>
                       )}
                     </>
@@ -960,10 +1143,10 @@ function Dashboard({ password, onLogout }: { password: string; onLogout: () => v
                 ) : (
                   <>
                     <h3 className="text-sm font-bold text-slate-700 mb-3">개인 신청</h3>
-                    <IndividualTable groups={filtered.filter((g) => g.type === '개인')} password={password} onConfirm={handleConfirm} onPaid={handlePaid} onDelete={handleDelete} />
+                    <IndividualTable groups={filtered.filter((g) => g.type === '개인')} password={password} onConfirm={handleConfirm} onPaid={handlePaid} onDelete={handleDelete} onEdit={setEditGroup} />
                     <div className="border-t border-slate-100 mt-6 pt-6">
                       <h3 className="text-sm font-bold text-slate-700 mb-3">단체 신청</h3>
-                      <GroupTable groups={filtered.filter((g) => g.type === '단체')} password={password} onConfirm={handleConfirm} onPaid={handlePaid} onDelete={handleDelete} />
+                      <GroupTable groups={filtered.filter((g) => g.type === '단체')} password={password} onConfirm={handleConfirm} onPaid={handlePaid} onDelete={handleDelete} onEdit={setEditGroup} />
                     </div>
                   </>
                 )}
