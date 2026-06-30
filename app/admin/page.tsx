@@ -616,6 +616,7 @@ function calcEditPrices(editRows: EditRow[]): { prices: number[]; discount: numb
   const prices = editRows.map((m) => {
     const dept = DEPT_MAP[m.소속];
     if (!dept) return 0;
+    if (m.등록유형 === '선교사') return 0;
     // 사역자는 별도 요금표 적용 (숙박 무관)
     if (m.등록유형 === '사역자') return MINISTRY_PRICE[dept];
     const regType = REG_TYPE_TO_CODE[m.등록유형] as RegistrationType | undefined;
@@ -624,9 +625,9 @@ function calcEditPrices(editRows: EditRow[]): { prices: number[]; discount: numb
     return PRICING[dept][regType][lodging];
   });
   const subtotal = prices.reduce((s, p) => s + p, 0);
-  // 사역자는 다자녀 할인 대상에서 제외
+  // 사역자·선교사는 다자녀 할인 대상에서 제외
   const childCount = editRows.filter((m) => {
-    if (m.등록유형 === '사역자') return false;
+    if (m.등록유형 === '사역자' || m.등록유형 === '선교사') return false;
     const dept = DEPT_MAP[m.소속];
     return dept && MULTI_CHILD_DISCOUNT.eligibleChildDepts.includes(dept);
   }).length;
@@ -686,20 +687,37 @@ function EditModal({ group, password, onClose, onSaved }: {
         {editRows.length > 1 && (
           <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 border-b border-slate-100">
             <span className="text-xs text-slate-400">{editRows.length}명</span>
-            <button
-              type="button"
-              onClick={() => setEditRows((prev) => prev.map((m) => ({ ...m, 등록유형: '사역자' })))}
-              className="flex items-center gap-1.5 rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-100 transition-colors"
-            >
-              전체 사역자 적용
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setEditRows((prev) => prev.map((m) => ({ ...m, 등록유형: '사역자' })))}
+                className="rounded-lg border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 hover:bg-purple-100 transition-colors"
+              >
+                전체 사역자 적용
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditRows((prev) => prev.map((m) => ({ ...m, 등록유형: '선교사' })))}
+                className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-100 transition-colors"
+              >
+                전체 선교사 적용
+              </button>
+            </div>
           </div>
         )}
         <div className="flex flex-col gap-2 p-4 max-h-[60vh] overflow-auto">
           {editRows.map((m, i) => {
-            const isMinistry = m.등록유형 === '사역자';
+            const isMinistry    = m.등록유형 === '사역자';
+            const isMissionary  = m.등록유형 === '선교사';
+            const rowCls = isMinistry  ? 'border-purple-200 bg-purple-50/40'
+                         : isMissionary ? 'border-amber-200 bg-amber-50/40'
+                         : 'border-slate-200';
+            const selectCls = isMinistry  ? 'border-purple-300 bg-purple-50 text-purple-700 focus:border-purple-500'
+                            : isMissionary ? 'border-amber-300 bg-amber-50 text-amber-700 focus:border-amber-500'
+                            : 'border-slate-300 focus:border-blue-500';
+            const amtCls = isMinistry ? 'text-purple-700' : isMissionary ? 'text-amber-700' : 'text-slate-700';
             return (
-              <div key={i} className={`grid grid-cols-[1fr_auto_auto_auto] items-center gap-2 rounded-sm border px-3 py-2.5 ${isMinistry ? 'border-purple-200 bg-purple-50/40' : 'border-slate-200'}`}>
+              <div key={i} className={`grid grid-cols-[1fr_auto_auto_auto] items-center gap-2 rounded-sm border px-3 py-2.5 ${rowCls}`}>
                 <div className="min-w-0">
                   <p className="font-semibold text-slate-800 text-sm truncate">{m.이름}</p>
                   <p className="text-xs text-slate-400 truncate">{m.소속}</p>
@@ -707,7 +725,7 @@ function EditModal({ group, password, onClose, onSaved }: {
                 <select
                   value={m.등록유형}
                   onChange={(e) => update(i, '등록유형', e.target.value)}
-                  className={`rounded border px-2 py-1.5 text-xs focus:outline-none ${isMinistry ? 'border-purple-300 bg-purple-50 text-purple-700 focus:border-purple-500' : 'border-slate-300 focus:border-blue-500'}`}
+                  className={`rounded border px-2 py-1.5 text-xs focus:outline-none ${selectCls}`}
                 >
                   <optgroup label="일반">
                     <option value="선등록">선등록</option>
@@ -717,6 +735,7 @@ function EditModal({ group, password, onClose, onSaved }: {
                   </optgroup>
                   <optgroup label="관리자 전용">
                     <option value="사역자">사역자</option>
+                    <option value="선교사">선교사</option>
                   </optgroup>
                 </select>
                 <select
@@ -728,10 +747,12 @@ function EditModal({ group, password, onClose, onSaved }: {
                   <option value="비숙박">비숙박</option>
                 </select>
                 <div className="text-right min-w-[64px]">
-                  {isMinistry && (
-                    <p className="text-[10px] text-purple-500 font-semibold leading-none mb-0.5">사역자</p>
+                  {(isMinistry || isMissionary) && (
+                    <p className={`text-[10px] font-semibold leading-none mb-0.5 ${isMinistry ? 'text-purple-500' : 'text-amber-500'}`}>
+                      {isMinistry ? '사역자' : '선교사'}
+                    </p>
                   )}
-                  <p className={`font-bold text-sm whitespace-nowrap ${isMinistry ? 'text-purple-700' : 'text-slate-700'}`}>{krw(prices[i])}</p>
+                  <p className={`font-bold text-sm whitespace-nowrap ${amtCls}`}>{krw(prices[i])}</p>
                 </div>
               </div>
             );
