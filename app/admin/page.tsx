@@ -212,6 +212,34 @@ function SortTh({ label, col, active, dir, onSort, align = 'left' }: {
   );
 }
 
+// ── 페이지네이션 ─────────────────────────────────────────────────────────
+const PAGE_SIZE = 20;
+
+function Pagination({ page, total, pageSize, onChange }: {
+  page: number; total: number; pageSize: number; onChange: (p: number) => void;
+}) {
+  const totalPages = Math.ceil(total / pageSize);
+  if (totalPages <= 1) return null;
+  const start = (page - 1) * pageSize + 1;
+  const end   = Math.min(page * pageSize, total);
+  return (
+    <div className="flex items-center justify-between border-t border-slate-100 px-4 py-2.5 text-xs text-slate-500">
+      <span>{start}–{end} / 총 {total}건</span>
+      <div className="flex items-center gap-0.5">
+        <button onClick={() => onChange(1)} disabled={page === 1}
+          className="rounded px-2 py-1 hover:bg-slate-100 disabled:opacity-30">«</button>
+        <button onClick={() => onChange(page - 1)} disabled={page === 1}
+          className="rounded px-2 py-1 hover:bg-slate-100 disabled:opacity-30">‹</button>
+        <span className="px-2.5 font-semibold text-slate-700">{page} / {totalPages}</span>
+        <button onClick={() => onChange(page + 1)} disabled={page === totalPages}
+          className="rounded px-2 py-1 hover:bg-slate-100 disabled:opacity-30">›</button>
+        <button onClick={() => onChange(totalPages)} disabled={page === totalPages}
+          className="rounded px-2 py-1 hover:bg-slate-100 disabled:opacity-30">»</button>
+      </div>
+    </div>
+  );
+}
+
 // ── 개인 신청 테이블 ──────────────────────────────────────────────────────
 type IndivSortKey = 'status' | 'name' | 'dept' | 'cell' | 'regType' | 'lodging' | 'amount' | 'date';
 
@@ -233,12 +261,15 @@ function IndividualTable({ groups, password, onConfirm, onPaid, onDelete }: {
 }) {
   const [sortKey, setSortKey] = useState<IndivSortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
+  const [page, setPage] = useState(1);
+
+  useEffect(() => { setPage(1); }, [groups]);
 
   function toggleSort(col: string) {
     const key = col as IndivSortKey;
-    if (sortKey !== key) { setSortKey(key); setSortDir('asc'); return; }
-    if (sortDir === 'asc') { setSortDir('desc'); return; }
-    setSortKey(null); setSortDir(null);
+    if (sortKey !== key) { setSortKey(key); setSortDir('asc'); setPage(1); return; }
+    if (sortDir === 'asc') { setSortDir('desc'); setPage(1); return; }
+    setSortKey(null); setSortDir(null); setPage(1);
   }
 
   const sorted = useMemo(() => {
@@ -259,6 +290,8 @@ function IndividualTable({ groups, password, onConfirm, onPaid, onDelete }: {
     });
   }, [groups, sortKey, sortDir]);
 
+  const paged = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   if (groups.length === 0) return <p className="text-sm text-slate-400 py-6 text-center">신청 내역이 없습니다.</p>;
 
   const th = (col: string, label: string, align?: 'left' | 'center' | 'right') => (
@@ -269,54 +302,57 @@ function IndividualTable({ groups, password, onConfirm, onPaid, onDelete }: {
   );
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm border-collapse">
-        <thead>
-          <tr className="bg-slate-50 text-xs">
-            {th('status',  '상태')}
-            {th('name',    '이름')}
-            {plainTh('연락처')}
-            {th('dept',    '소속', 'center')}
-            {th('cell', '셀번호', 'center')}
-            {th('regType', '등록유형', 'center')}
-            {th('lodging', '숙박', 'center')}
-            {th('amount',  '금액', 'right')}
-            {th('date',    '신청일시', 'center')}
-            {plainTh('입금확인')}
-            {plainTh('확정')}
-            {plainTh('관리')}
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.map((g) => {
-            const rep = g.rep;
-            return (
-              <tr key={g.groupId} className={`${g.confirmed ? 'bg-emerald-50/40' : 'bg-white hover:bg-slate-50'} border-b border-slate-100`}>
-                <td className="px-3 py-2.5"><StatusBadge g={g} /></td>
-                <td className="px-3 py-2.5 font-semibold text-slate-800">{rep.이름}</td>
-                <td className="px-3 py-2.5 text-center whitespace-nowrap text-slate-600">{rep.연락처}</td>
-                <td className="px-3 py-2.5 text-center whitespace-nowrap text-slate-600">{rep.소속}</td>
-                <td className="px-3 py-2.5 text-center text-slate-500">{cellDisplay(rep.셀번호, rep.소속)}</td>
-                <td className="px-3 py-2.5 text-center whitespace-nowrap text-slate-600">{rep.등록유형}</td>
-                <td className="px-3 py-2.5 text-center"><LodgeBadge value={rep.숙박} /></td>
-                <td className="px-3 py-2.5 text-right font-bold text-slate-800 whitespace-nowrap">{krw(g.total)}</td>
-                <td className="px-3 py-2.5 text-center text-xs text-slate-400 whitespace-nowrap">{rep.신청일시}</td>
-                <td className="px-3 py-2.5 text-center">
-                  {g.paid ? <span className="text-emerald-600 font-bold text-xs">✓ 확인</span>
-                          : <PaymentButton groupId={g.groupId} password={password} onPaid={onPaid} />}
-                </td>
-                <td className="px-3 py-2.5 text-center">
-                  {g.confirmed ? <span className="text-blue-600 font-bold text-xs">✓ 확정</span>
-                               : <ConfirmButton groupId={g.groupId} password={password} group={g} onConfirm={onConfirm} />}
-                </td>
-                <td className="px-3 py-2.5 text-center">
-                  <DeleteButton groupId={g.groupId} label={rep.이름} password={password} onDelete={onDelete} />
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+    <div>
+      <div className="overflow-auto max-h-[560px]">
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="sticky top-0 z-10 bg-slate-50 text-xs shadow-[0_1px_0_0_#e2e8f0]">
+              {th('status',  '상태')}
+              {th('name',    '이름')}
+              {plainTh('연락처')}
+              {th('dept',    '소속', 'center')}
+              {th('cell',    '셀번호', 'center')}
+              {th('regType', '등록유형', 'center')}
+              {th('lodging', '숙박', 'center')}
+              {th('amount',  '금액', 'right')}
+              {th('date',    '신청일시', 'center')}
+              {plainTh('입금확인')}
+              {plainTh('확정')}
+              {plainTh('관리')}
+            </tr>
+          </thead>
+          <tbody>
+            {paged.map((g) => {
+              const rep = g.rep;
+              return (
+                <tr key={g.groupId} className={`${g.confirmed ? 'bg-emerald-50/40' : 'bg-white hover:bg-slate-50'} border-b border-slate-100`}>
+                  <td className="px-3 py-2.5"><StatusBadge g={g} /></td>
+                  <td className="px-3 py-2.5 font-semibold text-slate-800">{rep.이름}</td>
+                  <td className="px-3 py-2.5 text-center whitespace-nowrap text-slate-600">{rep.연락처}</td>
+                  <td className="px-3 py-2.5 text-center whitespace-nowrap text-slate-600">{rep.소속}</td>
+                  <td className="px-3 py-2.5 text-center text-slate-500">{cellDisplay(rep.셀번호, rep.소속)}</td>
+                  <td className="px-3 py-2.5 text-center whitespace-nowrap text-slate-600">{rep.등록유형}</td>
+                  <td className="px-3 py-2.5 text-center"><LodgeBadge value={rep.숙박} /></td>
+                  <td className="px-3 py-2.5 text-right font-bold text-slate-800 whitespace-nowrap">{krw(g.total)}</td>
+                  <td className="px-3 py-2.5 text-center text-xs text-slate-400 whitespace-nowrap">{rep.신청일시}</td>
+                  <td className="px-3 py-2.5 text-center">
+                    {g.paid ? <span className="text-emerald-600 font-bold text-xs">✓ 확인</span>
+                            : <PaymentButton groupId={g.groupId} password={password} onPaid={onPaid} />}
+                  </td>
+                  <td className="px-3 py-2.5 text-center">
+                    {g.confirmed ? <span className="text-blue-600 font-bold text-xs">✓ 확정</span>
+                                 : <ConfirmButton groupId={g.groupId} password={password} group={g} onConfirm={onConfirm} />}
+                  </td>
+                  <td className="px-3 py-2.5 text-center">
+                    <DeleteButton groupId={g.groupId} label={rep.이름} password={password} onDelete={onDelete} />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <Pagination page={page} total={sorted.length} pageSize={PAGE_SIZE} onChange={setPage} />
     </div>
   );
 }
@@ -400,11 +436,14 @@ function GroupTable({ groups, password, onConfirm, onPaid, onDelete }: {
 }) {
   const [sortKey, setSortKey] = useState<GroupSortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
+  const [page, setPage] = useState(1);
+
+  useEffect(() => { setPage(1); }, [groups]);
 
   function toggleSort(key: GroupSortKey) {
-    if (sortKey !== key) { setSortKey(key); setSortDir('asc'); return; }
-    if (sortDir === 'asc') { setSortDir('desc'); return; }
-    setSortKey(null); setSortDir(null);
+    if (sortKey !== key) { setSortKey(key); setSortDir('asc'); setPage(1); return; }
+    if (sortDir === 'asc') { setSortDir('desc'); setPage(1); return; }
+    setSortKey(null); setSortDir(null); setPage(1);
   }
 
   const sorted = useMemo(() => {
@@ -421,6 +460,8 @@ function GroupTable({ groups, password, onConfirm, onPaid, onDelete }: {
       }
     });
   }, [groups, sortKey, sortDir]);
+
+  const paged = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   if (groups.length === 0) return <p className="text-sm text-slate-400 py-6 text-center">신청 내역이 없습니다.</p>;
 
@@ -449,13 +490,16 @@ function GroupTable({ groups, password, onConfirm, onPaid, onDelete }: {
           );
         })}
         {sortKey && (
-          <button type="button" onClick={() => { setSortKey(null); setSortDir(null); }}
+          <button type="button" onClick={() => { setSortKey(null); setSortDir(null); setPage(1); }}
             className="text-xs text-slate-400 hover:text-slate-600 ml-1">
             초기화
           </button>
         )}
       </div>
-      {sorted.map((g) => <GroupCard key={g.groupId} g={g} password={password} onConfirm={onConfirm} onPaid={onPaid} onDelete={onDelete} />)}
+      <div className="overflow-auto max-h-[560px] flex flex-col gap-3 pr-0.5">
+        {paged.map((g) => <GroupCard key={g.groupId} g={g} password={password} onConfirm={onConfirm} onPaid={onPaid} onDelete={onDelete} />)}
+      </div>
+      <Pagination page={page} total={sorted.length} pageSize={PAGE_SIZE} onChange={setPage} />
     </div>
   );
 }
@@ -890,12 +934,29 @@ function Dashboard({ password, onLogout }: { password: string; onLogout: () => v
 
               {/* 테이블 영역 */}
               <div className="rounded-sm bg-white border border-slate-200 p-4">
-                {tab === 'family' ? (
-                  <FamilyRoomBoard groups={filtered} />
-                ) : tab === 'individual' ? (
+                {tab === 'individual' ? (
                   <IndividualTable groups={filtered} password={password} onConfirm={handleConfirm} onPaid={handlePaid} onDelete={handleDelete} />
                 ) : tab === 'group' ? (
                   <GroupTable groups={filtered} password={password} onConfirm={handleConfirm} onPaid={handlePaid} onDelete={handleDelete} />
+                ) : tab === 'family' ? (
+                  filtered.length === 0 ? (
+                    <p className="text-sm text-slate-400 py-6 text-center">가족실 신청 내역이 없습니다.</p>
+                  ) : (
+                    <>
+                      {filtered.some((g) => g.type === '개인') && (
+                        <>
+                          <h3 className="text-sm font-bold text-slate-700 mb-3">개인 신청 (가족실)</h3>
+                          <IndividualTable groups={filtered.filter((g) => g.type === '개인')} password={password} onConfirm={handleConfirm} onPaid={handlePaid} onDelete={handleDelete} />
+                        </>
+                      )}
+                      {filtered.some((g) => g.type === '단체') && (
+                        <div className={filtered.some((g) => g.type === '개인') ? 'mt-6 pt-6 border-t border-slate-100' : ''}>
+                          <h3 className="text-sm font-bold text-slate-700 mb-3">단체 신청 (가족실)</h3>
+                          <GroupTable groups={filtered.filter((g) => g.type === '단체')} password={password} onConfirm={handleConfirm} onPaid={handlePaid} onDelete={handleDelete} />
+                        </div>
+                      )}
+                    </>
+                  )
                 ) : (
                   <>
                     <h3 className="text-sm font-bold text-slate-700 mb-3">개인 신청</h3>
