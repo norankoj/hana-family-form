@@ -214,7 +214,7 @@ function SortTh({ label, col, active, dir, onSort, align = 'left' }: {
 }
 
 // ── 개인 신청 테이블 ──────────────────────────────────────────────────────
-type IndivSortKey = 'status' | 'name' | 'dept' | 'cell' | 'regType' | 'lodging' | 'amount' | 'date';
+type IndivSortKey = 'status' | 'name' | 'dept' | 'cell' | 'regType' | 'lodging' | 'amount' | 'date' | 'paid' | 'confirmed';
 
 // "1A10 김보미" → "1A10" (숫자+문자 코드만 추출해서 정렬)
 function cellCode(s: string): string { return s?.split(' ')[0] ?? ''; }
@@ -255,6 +255,8 @@ function IndividualTable({ groups, password, onConfirm, onPaid, onDelete, onEdit
         case 'cell':    return cellCode(a.rep.셀번호).localeCompare(cellCode(b.rep.셀번호)) * m;
         case 'amount':  return (a.total - b.total) * m;
         case 'date':    return a.신청일시.localeCompare(b.신청일시) * m;
+        case 'paid':      return ((a.paid ? 1 : 0) - (b.paid ? 1 : 0)) * m;
+        case 'confirmed': return ((a.confirmed ? 1 : 0) - (b.confirmed ? 1 : 0)) * m;
         default: return 0;
       }
     });
@@ -284,8 +286,8 @@ function IndividualTable({ groups, password, onConfirm, onPaid, onDelete, onEdit
               {th('lodging', '숙박', 'center')}
               {th('amount',  '금액', 'right')}
               {th('date',    '신청일시', 'center')}
-              {plainTh('입금확인')}
-              {plainTh('확정')}
+              {th('paid', '입금확인', 'center')}
+              {th('confirmed', '확정', 'center')}
               {plainTh('관리')}
             </tr>
           </thead>
