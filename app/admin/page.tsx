@@ -604,7 +604,7 @@ const REG_TYPE_TO_CODE: Record<string, RegistrationType> = {
 // 사역자 할인 금액 (admin 전용 — 신청 폼에는 노출되지 않음)
 const MINISTRY_PRICE: Record<Department, number> = {
   ADULT_A:   40_000,
-  ADULT_B:   40_000,
+  ADULT_B:   37_500,
   YCM:       37_500,
   JOYLAND:   35_000,
   KINDER:    25_000,
