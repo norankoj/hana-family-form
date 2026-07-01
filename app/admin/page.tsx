@@ -601,15 +601,20 @@ const REG_TYPE_TO_CODE: Record<string, RegistrationType> = {
   '선등록': 'EARLY', '일반등록': 'REGULAR', '현장등록': 'ONSITE', '일일등록': 'DAILY',
 };
 
-// 사역자 할인 금액 (admin 전용 — 신청 폼에는 노출되지 않음)
-const MINISTRY_PRICE: Record<Department, number> = {
-  ADULT_A:   40_000,
-  ADULT_B:   37_500,
-  YCM:       37_500,
-  JOYLAND:   35_000,
-  KINDER:    25_000,
-  BABY_PAID:  7_500,
-  BABY_FREE:      0,
+// 사역자 할인 금액 — 소속 문자열 기준 (ADULT_B가 UCM/청년1부 혼재하므로 dept 코드 대신 직접 매핑)
+const MINISTRY_PRICE: Record<string, number> = {
+  '3진':                        40_000,
+  '2진':                        40_000,
+  '1진 청년2부':                40_000,
+  'EM':                         40_000,
+  '새가족(셀소속 전)':          40_000,
+  '1진 청년1부':                40_000,
+  '대학부(UCM)':                37_500,
+  '중고등부(YCM)':              37_500,
+  '초등부(조이랜드)':           35_000,
+  '유치부(40개월~미취학)':      25_000,
+  '베이비(13개월~39개월)':       7_500,
+  '베이비(~12개월)':                 0,
 };
 
 interface EditRow { 이름: string; 소속: string; 구분: string; 등록유형: string; 숙박: string; }
@@ -619,8 +624,8 @@ function calcEditPrices(editRows: EditRow[]): { prices: number[]; discount: numb
     const dept = DEPT_MAP[m.소속];
     if (!dept) return 0;
     if (m.등록유형 === '선교사') return 0;
-    // 사역자는 별도 요금표 적용 (숙박 무관)
-    if (m.등록유형 === '사역자') return MINISTRY_PRICE[dept];
+    // 사역자는 별도 요금표 적용 (소속 직접 조회 — UCM/청년1부 가격 구분)
+    if (m.등록유형 === '사역자') return MINISTRY_PRICE[m.소속] ?? 0;
     const regType = REG_TYPE_TO_CODE[m.등록유형] as RegistrationType | undefined;
     if (!regType) return 0;
     const lodging: LodgingType = m.숙박 === '숙박' ? 'LODGING' : 'NON_LODGING';
