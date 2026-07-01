@@ -960,7 +960,12 @@ function Dashboard({ password, onLogout }: { password: string; onLogout: () => v
     let gs = groups;
     if (q) {
       gs = gs.filter((g) =>
-        g.rows.some((r) => r.이름.toLowerCase().includes(q) || (r.연락처 ?? '').includes(q) || (r.소속 ?? '').toLowerCase().includes(q)),
+        g.rows.some((r) =>
+          r.이름.toLowerCase().includes(q) ||
+          (r.연락처 ?? '').includes(q) ||
+          (r.소속 ?? '').toLowerCase().includes(q) ||
+          (r.등록유형 ?? '').toLowerCase().includes(q),
+        ),
       );
     }
     if (tab === 'individual') return gs.filter((g) => g.type === '개인');
