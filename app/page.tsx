@@ -55,6 +55,7 @@ export default function HomePage() {
   const [direction, setDirection] = useState<"forward" | "back">("forward");
   const [feeOpen, setFeeOpen] = useState(false);
   const [programOpen, setProgramOpen] = useState(false);
+  const [refundOpen, setRefundOpen] = useState(false);
   const [groupCount, setGroupCount] = useState<number | null>(null);
   const [hp, setHp] = useState(""); // 허니팟 (봇 차단용 숨은 필드)
 
@@ -613,6 +614,59 @@ export default function HomePage() {
                     포함
                   </p>
                 </div>
+              </div>
+            )}
+          </div>
+
+          {/* 환불 규정 카드 */}
+          <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setRefundOpen((v) => !v)}
+              className="w-full px-6 py-5 flex items-center justify-between text-left"
+            >
+              <div>
+                <span className="inline-block rounded-full bg-rose-50 px-3 py-0.5 text-xs font-semibold text-rose-600 mb-2">
+                  환불 규정
+                </span>
+                <p className="text-lg font-bold text-slate-900">
+                  환불 규정 확인하기
+                </p>
+              </div>
+              <svg
+                className={`h-5 w-5 text-slate-400 transition-transform duration-200 ${refundOpen ? "rotate-180" : ""}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {refundOpen && (
+              <div className="px-6 pb-6 flex flex-col gap-3">
+                <div className="border-t border-slate-100" />
+                <ul className="flex flex-col gap-2.5 text-sm">
+                  <li className="flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                    <span className="font-semibold text-slate-900 shrink-0">100% 환불</span>
+                    <span className="flex-1 border-b border-dashed border-slate-300 mb-0.5" />
+                    <span className="text-slate-600 shrink-0">07.15(수)까지</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+                    <span className="font-semibold text-slate-900 shrink-0">80% 환불</span>
+                    <span className="flex-1 border-b border-dashed border-slate-300 mb-0.5" />
+                    <span className="text-slate-600 shrink-0">07.16(목) ~ 07.22(수)</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-rose-500 shrink-0" />
+                    <span className="font-semibold text-slate-900 shrink-0">환불 불가</span>
+                    <span className="flex-1 border-b border-dashed border-slate-300 mb-0.5" />
+                    <span className="text-slate-600 shrink-0">07.23(목) 이후</span>
+                  </li>
+                </ul>
               </div>
             )}
           </div>
