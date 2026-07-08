@@ -64,5 +64,6 @@ export const DEPARTMENT_OPTIONS = [
   { label: '베이비(~12개월, 무료)', value: '베이비(~12개월)' },
   { label: 'EM', value: 'EM' },
   { label: '새가족(셀소속 전)', value: '새가족(셀소속 전)' },
+  { label: '기타(성인)', value: '기타(성인)' },
 ] as const;
 

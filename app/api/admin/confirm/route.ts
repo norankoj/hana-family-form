@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { rateLimit, clientIp } from '@/lib/rateLimit';
 import { sendAlimtalk, TEMPLATE_CONFIRM } from '@/lib/solapi';
 
-const APPS_SCRIPT_URL = process.env.APPS_SCRIPT_URL ?? '';
-const ADMIN_PASSWORD  = process.env.ADMIN_PASSWORD  ?? '';
-const BANK_ACCOUNT    = process.env.BANK_ACCOUNT    ?? '';
+const APPS_SCRIPT_URL = process.env.APPS_SCRIPT_URL  ?? '';
+const ADMIN_PASSWORD  = process.env.ADMIN_PASSWORD   ?? '';
+const BANK_ACCOUNT    = process.env.BANK_ACCOUNT     ?? '';
+const GUIDE_URL       = process.env.RETREAT_GUIDE_URL  ?? '';
+const RETREAT_DATE    = process.env.RETREAT_DATE       ?? '';
 
 const VALID_ACTIONS = new Set(['confirm', 'payment']);
 
@@ -62,12 +64,9 @@ export async function POST(req: NextRequest) {
   if (action === 'confirm' && body.phone && body.name) {
     const members = body.members ?? [body.name];
     await sendAlimtalk(body.phone, TEMPLATE_CONFIRM, {
-      '#{이름}':    body.name,
-      '#{등록유형}': body.regType ?? '',
-      '#{인원수}':  String(members.length),
-      '#{구성원}':  members.join('\n'),
-      '#{금액}':    (body.total ?? 0).toLocaleString('ko-KR'),
-      '#{계좌번호}': BANK_ACCOUNT,
+      '#{구성원}':   members.join('\n'),
+      '#{참석일시}': RETREAT_DATE,
+      '#{링크}':     GUIDE_URL,
     }).catch((e) => console.error('[alimtalk] confirm:', e));
   }
 

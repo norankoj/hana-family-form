@@ -20,6 +20,7 @@ export const DEPT_MAP: Record<string, Department> = {
   '1진 청년2부':       'ADULT_A',
   'EM':                'ADULT_A',
   '새가족(셀소속 전)': 'ADULT_A',
+  '기타(성인)':        'ADULT_A',
   '대학부(UCM)':       'ADULT_B',
   '1진 청년1부':       'ADULT_B',
   '중고등부(YCM)':     'YCM',

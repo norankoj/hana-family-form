@@ -608,6 +608,7 @@ const MINISTRY_PRICE: Record<string, number> = {
   '1진 청년2부':                40_000,
   'EM':                         40_000,
   '새가족(셀소속 전)':          40_000,
+  '기타(성인)':                 40_000,
   '1진 청년1부':                40_000,
   '대학부(UCM)':                37_500,
   '중고등부(YCM)':              37_500,
@@ -624,8 +625,12 @@ function calcEditPrices(editRows: EditRow[]): { prices: number[]; discount: numb
     const dept = DEPT_MAP[m.소속];
     if (!dept) return 0;
     if (m.등록유형 === '선교사') return 0;
-    // 사역자는 별도 요금표 적용 (소속 직접 조회 — UCM/청년1부 가격 구분)
-    if (m.등록유형 === '사역자') return MINISTRY_PRICE[m.소속] ?? 0;
+    if (m.등록유형 === '마프할인') {
+      return Math.floor((MINISTRY_PRICE[m.소속] ?? 0) / 2);
+    }
+    if (m.등록유형 === '사역자') {
+      return MINISTRY_PRICE[m.소속] ?? 0;
+    }
     const regType = REG_TYPE_TO_CODE[m.등록유형] as RegistrationType | undefined;
     if (!regType) return 0;
     const lodging: LodgingType = m.숙박 === '숙박' ? 'LODGING' : 'NON_LODGING';
@@ -634,7 +639,7 @@ function calcEditPrices(editRows: EditRow[]): { prices: number[]; discount: numb
   const subtotal = prices.reduce((s, p) => s + p, 0);
   // 사역자·선교사는 다자녀 할인 대상에서 제외
   const childCount = editRows.filter((m) => {
-    if (m.등록유형 === '사역자' || m.등록유형 === '선교사') return false;
+    if (m.등록유형 === '사역자' || m.등록유형 === '선교사' || m.등록유형 === '마프할인') return false;
     const dept = DEPT_MAP[m.소속];
     return dept && MULTI_CHILD_DISCOUNT.eligibleChildDepts.includes(dept);
   }).length;
@@ -715,18 +720,36 @@ function EditModal({ group, password, onClose, onSaved }: {
         <div className="flex flex-col gap-2 p-4 max-h-[60vh] overflow-auto">
           {editRows.map((m, i) => {
             const isMinistry    = m.등록유형 === '사역자';
+            const isMarf        = m.등록유형 === '마프할인';
             const isMissionary  = m.등록유형 === '선교사';
             const rowCls = isMinistry  ? 'border-purple-200 bg-purple-50/40'
+                         : isMarf      ? 'border-teal-200 bg-teal-50/40'
                          : isMissionary ? 'border-amber-200 bg-amber-50/40'
                          : 'border-slate-200';
             const selectCls = isMinistry  ? 'border-purple-300 bg-purple-50 text-purple-700 focus:border-purple-500'
+                            : isMarf      ? 'border-teal-300 bg-teal-50 text-teal-700 focus:border-teal-500'
                             : isMissionary ? 'border-amber-300 bg-amber-50 text-amber-700 focus:border-amber-500'
                             : 'border-slate-300 focus:border-blue-500';
-            const amtCls = isMinistry ? 'text-purple-700' : isMissionary ? 'text-amber-700' : 'text-slate-700';
+            const amtCls = isMinistry ? 'text-purple-700' : isMarf ? 'text-teal-700' : isMissionary ? 'text-amber-700' : 'text-slate-700';
             return (
               <div key={i} className={`grid grid-cols-[1fr_auto_auto_auto] items-center gap-2 rounded-sm border px-3 py-2.5 ${rowCls}`}>
                 <div className="min-w-0">
-                  <p className="font-semibold text-slate-800 text-sm truncate">{m.이름}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="font-semibold text-slate-800 text-sm truncate">{m.이름}</p>
+                    {(isMinistry || isMarf) && (
+                      <button
+                        type="button"
+                        onClick={() => setEditRows((prev) => prev.map((r, idx) => idx === i ? { ...r, 등록유형: isMarf ? '사역자' : '마프할인' } : r))}
+                        className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold transition-colors ${
+                          isMarf
+                            ? 'bg-teal-500 text-white'
+                            : 'border border-teal-300 text-teal-600 hover:bg-teal-50'
+                        }`}
+                      >
+                        마프
+                      </button>
+                    )}
+                  </div>
                   <p className="text-xs text-slate-400 truncate">{m.소속}</p>
                 </div>
                 <select
@@ -742,6 +765,7 @@ function EditModal({ group, password, onClose, onSaved }: {
                   </optgroup>
                   <optgroup label="관리자 전용">
                     <option value="사역자">사역자</option>
+                    <option value="마프할인">마프할인</option>
                     <option value="선교사">선교사</option>
                   </optgroup>
                 </select>
@@ -754,9 +778,9 @@ function EditModal({ group, password, onClose, onSaved }: {
                   <option value="비숙박">비숙박</option>
                 </select>
                 <div className="text-right min-w-[64px]">
-                  {(isMinistry || isMissionary) && (
-                    <p className={`text-[10px] font-semibold leading-none mb-0.5 ${isMinistry ? 'text-purple-500' : 'text-amber-500'}`}>
-                      {isMinistry ? '사역자' : '선교사'}
+                  {(isMinistry || isMarf || isMissionary) && (
+                    <p className={`text-[10px] font-semibold leading-none mb-0.5 ${isMinistry ? 'text-purple-500' : isMarf ? 'text-teal-500' : 'text-amber-500'}`}>
+                      {isMinistry ? '사역자' : isMarf ? '마프할인' : '선교사'}
                     </p>
                   )}
                   <p className={`font-bold text-sm whitespace-nowrap ${amtCls}`}>{krw(prices[i])}</p>
@@ -805,7 +829,7 @@ function ConfirmButton({ groupId, password, group, onConfirm }: {
     };
     const members = group.rows
       .filter((r) => r.구분 !== '할인')
-      .map((r) => `${r.이름} (${DEPT_SHORT[r.소속] ?? r.소속})`);
+      .map((r) => `- ${r.이름}(${DEPT_SHORT[r.소속] ?? r.소속}) : ${r.숙박}`);
     try {
       const res = await fetch('/api/admin/confirm', {
         method: 'POST',
