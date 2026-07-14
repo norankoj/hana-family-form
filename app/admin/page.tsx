@@ -1,5 +1,6 @@
 'use client';
 import { useState, useMemo, useEffect, useCallback } from 'react';
+import * as XLSX from 'xlsx';
 import { PRICING, DEPT_MAP, LODGING_FIXED_DEPTS, MULTI_CHILD_DISCOUNT, type Department, type RegistrationType, type LodgingType } from '@/config/pricing';
 
 // ── 타입 ────────────────────────────────────────────────────────────────────
@@ -907,22 +908,38 @@ function DeleteButton({ groupId, label, password, onDelete }: {
   );
 }
 
-// ── CSV 내보내기 ──────────────────────────────────────────────────────────
-function exportCsv(rows: Row[]) {
-  const headers = ['신청번호','신청일시','신청유형','구분','이름','연락처','소속','셀번호','등록유형','참석날짜','숙박','가족실','금액','확정','입금확인'];
-  const esc = (v: string) => `"${(v ?? '').replace(/"/g, '""')}"`;
-  const lines = rows.map((r) => [
+// ── Excel 내보내기 (부서별 시트) ──────────────────────────────────────────
+const EXCEL_DEPT_ORDER = [
+  '3진', '2진', '1진 청년2부', '1진 청년1부', 'EM', '새가족(셀소속 전)', '기타(성인)',
+  '대학부(UCM)', '중고등부(YCM)', '초등부(조이랜드)',
+  '유치부(40개월~미취학)', '베이비(13개월~39개월)', '베이비(~12개월)',
+];
+const EXCEL_HEADERS = ['신청번호','신청일시','신청유형','구분','이름','연락처','소속','셀번호','등록유형','참석날짜','숙박','가족실','금액','확정','입금확인'];
+
+function rowToArr(r: Row): (string | number)[] {
+  return [
     r.groupId, r.신청일시, r.신청유형, r.구분, r.이름, r.연락처, r.소속, r.셀번호,
-    r.등록유형, r.참석날짜, r.숙박, r.가족실, r.금액, r.확정, r.입금확인,
-  ].map(esc).join(','));
-  const csv = '﻿' + [headers.join(','), ...lines].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `하나가족수양회_신청현황_${new Date().toISOString().slice(0, 10)}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+    r.등록유형, r.참석날짜, r.숙박, r.가족실, Number(r.금액) || r.금액, r.확정, r.입금확인,
+  ];
+}
+
+function exportExcel(rows: Row[]) {
+  const wb = XLSX.utils.book_new();
+
+  // 전체 시트
+  const allData = [EXCEL_HEADERS, ...rows.map(rowToArr)];
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(allData), '전체');
+
+  // 부서별 시트
+  for (const dept of EXCEL_DEPT_ORDER) {
+    const deptRows = rows.filter((r) => r.소속 === dept && r.구분 !== '할인');
+    if (deptRows.length === 0) continue;
+    const data = [EXCEL_HEADERS, ...deptRows.map(rowToArr)];
+    const sheetName = dept.length > 31 ? dept.slice(0, 31) : dept;
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(data), sheetName);
+  }
+
+  XLSX.writeFile(wb, `하나가족수양회_신청현황_${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
 // ── 메인 대시보드 ──────────────────────────────────────────────────────────
@@ -1013,12 +1030,12 @@ function Dashboard({ password, onLogout }: { password: string; onLogout: () => v
             <p className="text-base font-bold text-slate-900">2026 하나가족수양회</p>
           </div>
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => exportCsv(rows)}
+            <button type="button" onClick={() => exportExcel(rows)}
               className="flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-200 transition-colors">
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16" />
               </svg>
-              엑셀(CSV)
+              엑셀
             </button>
             <button type="button" onClick={() => load()}
               className="flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-2 text-xs font-medium text-slate-600 hover:bg-slate-200 transition-colors">
