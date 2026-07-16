@@ -58,10 +58,8 @@ function CompanionCard({
     const next = { ...companion, [key]: val };
     if (key === 'department') {
       next.cellGroup = '';
-      const newDept = DEPT_MAP[val as string];
-      if (newDept && LODGING_FIXED_DEPTS.includes(newDept)) {
-        next.lodging = 'LODGING';
-      }
+      // 숙박 마감 — 부서 변경 시에도 NON_LODGING 고정
+      next.lodging = 'NON_LODGING';
     }
     onChange(next);
   }
@@ -156,26 +154,12 @@ function CompanionCard({
 
       {/* 숙박 여부 */}
       <FieldGroup label="숙박 여부">
-        {isLodgingFixed && (
-          <div className="mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-600">
-            해당 부서는 숙박이 기본 포함됩니다.
-          </div>
-        )}
-        {!isLodgingFixed && dept === 'ADULT_A' && (
-          <div className="mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-600">
-            해당 부서는 비숙박이 기본입니다.
-          </div>
-        )}
-        <ToggleGroup
-          cols={2}
-          value={companion.lodging}
-          onChange={(v) => update('lodging', v)}
-          options={[
-            { label: '비숙박', value: 'NON_LODGING', description: '당일 귀가' },
-            { label: '숙박', value: 'LODGING', description: '1박 2일' },
-          ]}
-          disabled={companion.registrationType === 'DAILY'}
-        />
+        <div className="mb-2 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+          🚫 숙박이 마감되었습니다. 방 개수가 부족하여 비숙박으로만 신청 가능합니다.
+        </div>
+        <div className="rounded-lg border-2 border-blue-500 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-700">
+          비숙박 · 당일 귀가
+        </div>
       </FieldGroup>
 
       {/* UCM 2007년생 이하 체크 */}

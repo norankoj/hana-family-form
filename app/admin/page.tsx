@@ -28,6 +28,7 @@ interface Row {
   금액: string;
   확정: string; // '확정' | ''
   입금확인: string; // '확인' | ''
+  성별: string;    // '남' | '여' | ''
 }
 
 interface Group {
@@ -87,6 +88,7 @@ const DEPT_GROUPS: { label: string; match: (dept: string) => boolean }[] = [
   { label: "청년1부", match: (d) => d.includes("청년1부") },
   { label: "EM", match: (d) => d === "EM" },
   { label: "새가족", match: (d) => d.includes("새가족") },
+  { label: "기타(성인)", match: (d) => d === "기타(성인)" },
   { label: "UCM", match: (d) => d.includes("UCM") || d.includes("대학") },
   { label: "YCM", match: (d) => d.includes("YCM") || d.includes("중고등") },
   {
@@ -1008,6 +1010,7 @@ function DeptMemberTable({
             {th("name", "이름", "left")}
             {plainTh("소속")}
             {th("cell", "셀번호")}
+            {plainTh("성별")}
             {plainTh("구분")}
             {th("regType", "등록유형")}
             {th("lodging", "숙박")}
@@ -1026,6 +1029,13 @@ function DeptMemberTable({
               </td>
               <td className="px-3 py-2.5 text-center text-slate-500">
                 {cellCode(r.셀번호) || "—"}
+              </td>
+              <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                {r.성별 ? (
+                  <span className={`inline-block rounded-sm px-2 py-0.5 text-xs font-semibold ${r.성별 === "남" ? "bg-blue-100 text-blue-700" : "bg-pink-100 text-pink-700"}`}>
+                    {r.성별}
+                  </span>
+                ) : "—"}
               </td>
               <td className="px-3 py-2.5 text-center">
                 <span
@@ -1503,10 +1513,10 @@ const EXCEL_DEPT_ORDER = [
   "대학부(UCM)", "중고등부(YCM)", "초등부(조이랜드)",
   "유치부(40개월~미취학)", "베이비(13개월~39개월)", "베이비(~12개월)",
 ];
-const EXCEL_HEADERS = ["신청번호","신청일시","신청유형","구분","이름","연락처","소속","셀번호","등록유형","참석날짜","숙박","가족실","금액","확정","입금확인"];
+const EXCEL_HEADERS = ["신청번호","신청일시","신청유형","구분","이름","성별","연락처","소속","셀번호","등록유형","참석날짜","숙박","가족실","금액","확정","입금확인"];
 
 function rowToArr(r: Row): (string | number)[] {
-  return [r.groupId, r.신청일시, r.신청유형, r.구분, r.이름, r.연락처, r.소속, r.셀번호, r.등록유형, r.참석날짜, r.숙박, r.가족실, Number(r.금액) || r.금액, r.확정, r.입금확인];
+  return [r.groupId, r.신청일시, r.신청유형, r.구분, r.이름, r.성별 ?? "", r.연락처, r.소속, r.셀번호, r.등록유형, r.참석날짜, r.숙박, r.가족실, Number(r.금액) || r.금액, r.확정, r.입금확인];
 }
 
 function exportExcel(rows: Row[]) {
@@ -1771,7 +1781,7 @@ function Dashboard({
                     · 클릭하면 명단을 볼 수 있어요
                   </span>
                 </h2>
-                <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-11 gap-2">
+                <div className="grid grid-cols-3 sm:grid-cols-6 lg:grid-cols-12 gap-2">
                   {deptStats.map(({ label, count }) => {
                     const active = deptFilter === label;
                     return (
