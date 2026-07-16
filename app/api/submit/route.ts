@@ -91,10 +91,11 @@ function toRows(formState: FormState): string[][] {
   rows.push([
     groupId, now, appType, '대표자',
     rep.name, rep.phone, rep.department as string, rep.cellGroup ?? '',
+    rep.gender ?? '',                              // I 성별
     REG_TYPE_KO[rep.registrationType], rep.dailyDate ?? '',
     rep.lodging === 'LODGING' ? '숙박' : '비숙박',
     rep.wantsFamilyRoom ? '희망' : '',
-    String(repItem?.subtotal ?? 0),        // M 금액 (실제 회비)
+    String(repItem?.subtotal ?? 0),
     groupId, '', '',
     rep.isYoungUCM ? 'Y' : '',
   ]);
@@ -105,6 +106,7 @@ function toRows(formState: FormState): string[][] {
     rows.push([
       groupId, now, appType, '일행',
       c.name, '', c.department as string, c.cellGroup ?? '',
+      c.gender ?? '',                              // I 성별
       REG_TYPE_KO[c.registrationType], c.dailyDate ?? '',
       c.lodging === 'LODGING' ? '숙박' : '비숙박',
       '', String(item?.subtotal ?? 0), groupId, '', '',

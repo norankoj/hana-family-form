@@ -27,6 +27,7 @@ interface Step2Props {
 interface Errors {
   name?: string;
   phone?: string;
+  gender?: string;
   department?: string;
   dailyDate?: string;
 }
@@ -37,6 +38,7 @@ function validate(data: RepresentativeForm): Errors {
   const digits = data.phone.replace(/\D/g, "");
   if (!digits) errors.phone = "연락처를 입력해 주세요.";
   else if (digits.length < 10) errors.phone = "올바른 연락처를 입력해 주세요.";
+  if (!data.gender) errors.gender = "성별을 선택해 주세요.";
   if (!data.department) errors.department = "소속을 선택해 주세요.";
   if (data.registrationType === "DAILY" && !data.dailyDate) {
     errors.dailyDate = "참석 날짜를 선택해 주세요.";
@@ -137,6 +139,27 @@ export default function Step2Info({
           onChange={(e) => update("phone", formatPhone(e.target.value))}
           maxLength={13}
         />
+      </FieldGroup>
+
+      {/* 성별 */}
+      <FieldGroup label="성별" required error={touched ? errors.gender : undefined}>
+        <div className="flex gap-2">
+          {(['남', '여'] as const).map((g) => (
+            <button
+              key={g}
+              type="button"
+              onClick={() => update('gender', value.gender === g ? '' : g)}
+              className={[
+                'flex-1 rounded-xl border-2 px-4 py-3 text-sm font-medium transition-all',
+                value.gender === g
+                  ? 'border-blue-500 bg-blue-50 text-blue-700'
+                  : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:bg-blue-50/40',
+              ].join(' ')}
+            >
+              {g}
+            </button>
+          ))}
+        </div>
       </FieldGroup>
 
       {/* 소속 */}

@@ -15,6 +15,7 @@ import Step4Confirm from "@/components/form/Step4Confirm";
 const defaultRepresentative = (): RepresentativeForm => ({
   name: "",
   phone: "",
+  gender: "",
   department: "",
   cellGroup: "",
   registrationType: getRegistrationType(new Date()),
@@ -104,6 +105,7 @@ export default function HomePage() {
     const companions = Array.from({ length: count - 1 }, () => ({
       id: Math.random().toString(36).slice(2),
       name: "",
+      gender: "",
       department: "" as const,
       registrationType: formState.representative.registrationType,
       lodging: "NON_LODGING" as const,

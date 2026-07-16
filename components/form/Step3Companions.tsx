@@ -24,6 +24,7 @@ function makeCompanion(): AttendeeForm {
   return {
     id: Math.random().toString(36).slice(2),
     name: '',
+    gender: '',
     department: '',
     registrationType: getRegistrationType(new Date()),
     lodging: 'NON_LODGING',
@@ -90,6 +91,27 @@ function CompanionCard({
           value={companion.name}
           onChange={(e) => update('name', e.target.value)}
         />
+      </FieldGroup>
+
+      {/* 성별 */}
+      <FieldGroup label="성별" required error={showError && !companion.gender ? '성별을 선택해 주세요.' : undefined}>
+        <div className="flex gap-2">
+          {(['남', '여'] as const).map((g) => (
+            <button
+              key={g}
+              type="button"
+              onClick={() => update('gender', companion.gender === g ? '' : g)}
+              className={[
+                'flex-1 rounded-xl border-2 px-4 py-3 text-sm font-medium transition-all',
+                companion.gender === g
+                  ? 'border-blue-500 bg-blue-50 text-blue-700'
+                  : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:bg-blue-50/40',
+              ].join(' ')}
+            >
+              {g}
+            </button>
+          ))}
+        </div>
       </FieldGroup>
 
       {/* 소속 */}
@@ -207,6 +229,7 @@ export default function Step3Companions({
     const allValid = companions.every(
       (c) =>
         c.name.trim() &&
+        c.gender &&
         c.department &&
         (c.registrationType !== 'DAILY' || c.dailyDate),
     );

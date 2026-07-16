@@ -5,6 +5,7 @@ export type ApplicationType = 'INDIVIDUAL' | 'GROUP';
 export interface AttendeeForm {
   id: string;
   name: string;
+  gender?: string;
   department: Department | '';
   cellGroup?: string;
   registrationType: RegistrationType;
@@ -17,6 +18,7 @@ export interface AttendeeForm {
 export interface RepresentativeForm {
   name: string;
   phone: string;              // 010-xxxx-xxxx
+  gender?: string;
   department: Department | '';
   cellGroup?: string;         // 셀 번호 (1~3진/EM만)
   registrationType: RegistrationType;
