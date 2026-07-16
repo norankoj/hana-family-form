@@ -236,18 +236,18 @@ function ProgressBar({
 function StatusBadge({ g }: { g: Group }) {
   if (g.confirmed)
     return (
-      <span className="inline-flex items-center rounded-sm bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700">
+      <span className="inline-flex items-center rounded-sm bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-700 whitespace-nowrap">
         확정 완료
       </span>
     );
   if (g.paid)
     return (
-      <span className="inline-flex items-center rounded-sm bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700">
+      <span className="inline-flex items-center rounded-sm bg-blue-100 px-2 py-0.5 text-xs font-bold text-blue-700 whitespace-nowrap">
         입금 확인
       </span>
     );
   return (
-    <span className="inline-flex items-center rounded-sm bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-500">
+    <span className="inline-flex items-center rounded-sm bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-500 whitespace-nowrap">
       신청 접수
     </span>
   );
@@ -448,6 +448,7 @@ function IndividualTable({
             <tr className="sticky top-0 z-10 bg-slate-50 text-xs shadow-[0_1px_0_0_#e2e8f0]">
               {th("status", "상태")}
               {th("name", "이름")}
+              {plainTh("성별", "center")}
               {plainTh("연락처")}
               {th("dept", "소속", "center")}
               {th("cell", "셀번호", "center")}
@@ -471,8 +472,15 @@ function IndividualTable({
                   <td className="px-3 py-2.5">
                     <StatusBadge g={g} />
                   </td>
-                  <td className="px-3 py-2.5 font-semibold text-slate-800">
+                  <td className="px-3 py-2.5 font-semibold text-slate-800 max-w-[80px] truncate">
                     {rep.이름}
+                  </td>
+                  <td className="px-3 py-2.5 text-center">
+                    {rep.성별 ? (
+                      <span className={`inline-block rounded-sm px-2 py-0.5 text-xs font-semibold ${rep.성별 === "남" ? "bg-blue-100 text-blue-700" : "bg-pink-100 text-pink-700"}`}>
+                        {rep.성별}
+                      </span>
+                    ) : <span className="text-slate-300">—</span>}
                   </td>
                   <td className="px-3 py-2.5 text-center whitespace-nowrap text-slate-600">
                     {rep.연락처}
@@ -656,6 +664,7 @@ function GroupCard({
             <tr className="text-xs text-slate-400 bg-white border-b border-slate-100">
               <th className="px-4 py-1.5 text-left">구분</th>
               <th className="px-4 py-1.5 text-left">이름</th>
+              <th className="px-4 py-1.5 text-center">성별</th>
               <th className="px-4 py-1.5">소속</th>
               <th className="px-4 py-1.5">등록유형</th>
               <th className="px-4 py-1.5">숙박</th>
@@ -666,7 +675,7 @@ function GroupCard({
             {g.rows.map((row, i) =>
               row.구분 === "할인" ? (
                 <tr key={i} className="border-t border-slate-100 bg-slate-50">
-                  <td className="px-4 py-2" colSpan={5}>
+                  <td className="px-4 py-2" colSpan={6}>
                     <span className="text-xs font-semibold text-slate-500">
                       {row.이름}
                     </span>
@@ -686,6 +695,13 @@ function GroupCard({
                   </td>
                   <td className="px-4 py-2 font-medium text-slate-800">
                     {row.이름}
+                  </td>
+                  <td className="px-4 py-2 text-center">
+                    {row.성별 ? (
+                      <span className={`inline-block rounded-sm px-2 py-0.5 text-xs font-semibold ${row.성별 === "남" ? "bg-blue-100 text-blue-700" : "bg-pink-100 text-pink-700"}`}>
+                        {row.성별}
+                      </span>
+                    ) : <span className="text-slate-300">—</span>}
                   </td>
                   <td className="px-4 py-2 text-center text-slate-600 whitespace-nowrap">
                     {row.소속}
@@ -1095,6 +1111,7 @@ interface EditRow {
   구분: string;
   등록유형: string;
   숙박: string;
+  성별: string;
 }
 
 function calcEditPrices(editRows: EditRow[]): {
@@ -1153,13 +1170,14 @@ function EditModal({
         구분: r.구분,
         등록유형: r.등록유형,
         숙박: r.숙박,
+        성별: r.성별 ?? "",
       })),
   );
   const [saving, setSaving] = useState(false);
 
   function update(
     i: number,
-    field: keyof Pick<EditRow, "등록유형" | "숙박">,
+    field: keyof Pick<EditRow, "등록유형" | "숙박" | "성별">,
     value: string,
   ) {
     setEditRows((prev) =>
@@ -1186,6 +1204,7 @@ function EditModal({
             등록유형: m.등록유형,
             숙박: m.숙박,
             금액: prices[i],
+            성별: m.성별,
           })),
           discountAmount: discount,
         }),
@@ -1275,7 +1294,7 @@ function EditModal({
             return (
               <div
                 key={i}
-                className={`grid grid-cols-[1fr_auto_auto_auto] items-center gap-2 rounded-sm border px-3 py-2.5 ${rowCls}`}
+                className={`grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-2 rounded-sm border px-3 py-2.5 ${rowCls}`}
               >
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
@@ -1291,6 +1310,26 @@ function EditModal({
                     )}
                   </div>
                   <p className="text-xs text-slate-400 truncate">{m.소속}</p>
+                </div>
+                <div className="flex gap-1">
+                  {(["남", "여", ""] as const).map((v) => (
+                    <button
+                      key={v || "none"}
+                      type="button"
+                      onClick={() => update(i, "성별", v)}
+                      className={`rounded px-2 py-1.5 text-xs font-bold transition-colors ${
+                        m.성별 === v
+                          ? v === "남"
+                            ? "bg-blue-500 text-white"
+                            : v === "여"
+                              ? "bg-pink-500 text-white"
+                              : "bg-slate-400 text-white"
+                          : "border border-slate-200 text-slate-400 hover:bg-slate-50"
+                      }`}
+                    >
+                      {v || "—"}
+                    </button>
+                  ))}
                 </div>
                 <select
                   value={m.등록유형}
@@ -1507,6 +1546,91 @@ function DeleteButton({
   );
 }
 
+// ── 셀번호 검색 콤보박스 ──────────────────────────────────────────────────
+function CellSelect({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+}) {
+  const [query, setQuery] = useState(value);
+  const [open, setOpen] = useState(false);
+
+  const matched = query
+    ? options.filter((o) => o.toLowerCase().includes(query.toLowerCase()))
+    : options;
+
+  function select(opt: string) {
+    setQuery(opt);
+    onChange(opt);
+    setOpen(false);
+  }
+
+  function clear() {
+    setQuery("");
+    onChange("");
+    setOpen(false);
+  }
+
+  return (
+    <div className="relative w-36">
+      <div className="relative">
+        <input
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            onChange("");
+            setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
+          placeholder="셀 번호 검색"
+          className="w-full rounded-sm border border-slate-300 bg-white px-3 pr-7 py-2 text-sm focus:border-blue-500 focus:outline-none"
+        />
+        {query ? (
+          <button
+            type="button"
+            onMouseDown={(e) => { e.preventDefault(); clear(); }}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+          >
+            ✕
+          </button>
+        ) : (
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-300 text-[10px] pointer-events-none">▼</span>
+        )}
+      </div>
+      {open && (
+        <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-52 overflow-auto">
+          <button
+            type="button"
+            onMouseDown={(e) => { e.preventDefault(); clear(); }}
+            className="w-full text-left px-3 py-2 text-xs text-slate-400 hover:bg-slate-50 border-b border-slate-100"
+          >
+            전체 (선택 해제)
+          </button>
+          {matched.length === 0 ? (
+            <p className="px-3 py-2 text-xs text-slate-400">결과 없음</p>
+          ) : (
+            matched.map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onMouseDown={(e) => { e.preventDefault(); select(opt); }}
+                className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 hover:text-blue-700 ${value === opt ? "bg-blue-50 font-semibold text-blue-700" : "text-slate-700"}`}
+              >
+                {opt}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Excel 내보내기 (부서별 시트) ──────────────────────────────────────────
 const EXCEL_DEPT_ORDER = [
   "3진", "2진", "1진 청년2부", "1진 청년1부", "EM", "새가족(셀소속 전)", "기타(성인)",
@@ -1550,6 +1674,7 @@ function Dashboard({
   const [confirmed, setConfirmed] = useState<Set<string>>(new Set());
   const [paid, setPaid] = useState<Set<string>>(new Set());
   const [editGroup, setEditGroup] = useState<Group | null>(null);
+  const [cellFilter, setCellFilter] = useState("");
 
   const load = useCallback(
     async (silent = false) => {
@@ -1592,6 +1717,16 @@ function Dashboard({
     [rows, confirmed, paid],
   );
 
+  const uniqueCellCodes = useMemo(() => {
+    const codes = new Set<string>();
+    rows.forEach((r) => {
+      if (r.구분 === "할인") return;
+      const v = r.셀번호?.trim();
+      if (v) codes.add(v);
+    });
+    return Array.from(codes).sort();
+  }, [rows]);
+
   // ── 통계 ── ('할인' 행은 인원이 아니므로 제외)
   const totalPeople = rows.filter((r) => r.구분 !== "할인").length;
   const lodgingCount = rows.filter((r) => r.숙박 === "숙박").length;
@@ -1629,11 +1764,16 @@ function Dashboard({
         ),
       );
     }
+    if (cellFilter) {
+      gs = gs.filter((g) =>
+        g.rows.some((r) => r.셀번호?.trim() === cellFilter),
+      );
+    }
     if (tab === "individual") return gs.filter((g) => g.type === "개인");
     if (tab === "group") return gs.filter((g) => g.type === "단체");
     if (tab === "family") return gs.filter((g) => g.wantsFamilyRoom);
     return gs;
-  }, [groups, search, tab]);
+  }, [groups, search, cellFilter, tab]);
 
   const activeDept = deptFilter
     ? DEPT_GROUPS.find((d) => d.label === deptFilter)
@@ -1877,26 +2017,33 @@ function Dashboard({
                     </button>
                   ))}
                 </div>
-                <div className="relative sm:w-64">
-                  <svg
-                    className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"
-                    />
-                  </svg>
-                  <input
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    placeholder="이름·연락처·소속 검색"
-                    className="w-full rounded-sm border border-slate-300 bg-white pl-9 pr-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                <div className="flex items-center gap-2">
+                  <CellSelect
+                    value={cellFilter}
+                    onChange={setCellFilter}
+                    options={uniqueCellCodes}
                   />
+                  <div className="relative sm:w-64">
+                    <svg
+                      className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"
+                      />
+                    </svg>
+                    <input
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      placeholder="이름·연락처·소속 검색"
+                      className="w-full rounded-sm border border-slate-300 bg-white pl-9 pr-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
                 </div>
               </div>
 

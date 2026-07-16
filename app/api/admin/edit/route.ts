@@ -9,6 +9,7 @@ interface EditMember {
   등록유형: string;
   숙박:     string;
   금액:     number;
+  성별:     string;
 }
 
 interface EditPayload {
