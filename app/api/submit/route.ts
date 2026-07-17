@@ -121,8 +121,8 @@ function toRows(formState: FormState): string[][] {
     rows.push([
       groupId, now, appType, '할인',
       `다자녀 할인 ${Math.round(summary.multiChildRate * 100)}%`, '', '', '',
-      '', '', '', '',
-      String(-summary.multiChildDiscountTotal),   // M 금액 (음수)
+      '', '', '', '', '',                          // 성별·등록유형·참석날짜·숙박·가족실
+      String(-summary.multiChildDiscountTotal),   // N 금액 (음수)
       groupId, '', '', '',
     ]);
   }

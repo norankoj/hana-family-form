@@ -1760,7 +1760,8 @@ function Dashboard({
           (r) =>
             r.이름.toLowerCase().includes(q) ||
             (r.연락처 ?? "").includes(q) ||
-            (r.소속 ?? "").toLowerCase().includes(q),
+            (r.소속 ?? "").toLowerCase().includes(q) ||
+            (r.등록유형 ?? "").toLowerCase().includes(q),
         ),
       );
     }
