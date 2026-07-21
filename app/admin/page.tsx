@@ -1441,6 +1441,7 @@ function ConfirmButton({
           name: group.rep.이름,
           phone: group.rep.연락처,
           regType: group.rep.등록유형,
+          dailyDate: group.rep.참석날짜,
           members,
           total: group.total,
         }),

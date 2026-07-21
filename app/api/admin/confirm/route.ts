@@ -12,15 +12,16 @@ const VALID_ACTIONS = new Set(['confirm', 'payment']);
 
 // 확정 알림톡에 필요한 그룹 정보 (admin 페이지에서 넘겨줌)
 interface ConfirmPayload {
-  password:  string;
-  groupId:   string;
-  action?:   string;
+  password:   string;
+  groupId:    string;
+  action?:    string;
   // 알림톡용 — action=confirm 일 때만 필요
-  name?:     string;   // 대표자 이름
-  phone?:    string;   // 대표자 연락처
-  regType?:  string;   // 등록유형 (한글)
-  members?:  string[]; // 전체 구성원 이름 배열
-  total?:    number;   // 합계 금액
+  name?:      string;   // 대표자 이름
+  phone?:     string;   // 대표자 연락처
+  regType?:   string;   // 등록유형 (한글)
+  dailyDate?: string;   // 일일등록 참석날짜 ('2026-07-26' 이면 26일 메시지)
+  members?:   string[]; // 전체 구성원 이름 배열
+  total?:     number;   // 합계 금액
 }
 
 export async function POST(req: NextRequest) {
@@ -63,9 +64,12 @@ export async function POST(req: NextRequest) {
   // ── 확정 알림톡 (action=confirm 일 때만) ──
   if (action === 'confirm' && body.phone && body.name) {
     const members = body.members ?? [body.name];
+    const retreatDate = body.dailyDate === '2026-07-26'
+      ? '2026.7.26(일) 오전 9시까지'
+      : RETREAT_DATE;
     await sendAlimtalk(body.phone, TEMPLATE_CONFIRM, {
       '#{구성원}':   members.join('\n'),
-      '#{참석일시}': RETREAT_DATE,
+      '#{참석일시}': retreatDate,
       '#{링크}':     GUIDE_URL,
     }).catch((e) => console.error('[alimtalk] confirm:', e));
   }
