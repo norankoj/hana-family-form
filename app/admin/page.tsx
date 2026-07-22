@@ -1980,6 +1980,15 @@ function Dashboard({
                       const total   = members.length;
                       const lodging = members.filter((r) => r.숙박 === "숙박").length;
                       const paid    = total > 0 ? Math.round(members.filter((r) => r.입금확인 === "확인").length / total * 100) : 0;
+                      const filteredMembers = lodgingFilter
+                        ? members.filter((r) => r.숙박 === lodgingFilter)
+                        : members;
+                      const regStats = (["선등록", "일반등록", "일일등록"] as const)
+                        .map((type) => {
+                          const m = filteredMembers.filter((r) => r.등록유형 === type);
+                          return { type, count: m.length, unpaid: m.filter((r) => r.입금확인 !== "확인").length };
+                        })
+                        .filter((s) => s.count > 0);
                       return (
                         <>
                           <span className="font-normal text-blue-500">{total}명</span>
@@ -1994,7 +2003,12 @@ function Dashboard({
                               비숙박 {total - lodging}명
                             </button>
                           </div>
-                          <span className={`font-semibold text-sm ${paid === 100 ? "text-emerald-600" : "text-slate-800"}`}>입금완료 {paid}% · 미완료 {100 - paid}%</span>
+                          {regStats.map(({ type, count, unpaid }) => (
+                            <span key={type} className="text-sm text-slate-700">
+                              {type} {count}명{unpaid > 0 && <span className="text-red-500 font-semibold">(미납 {unpaid}명)</span>}
+                            </span>
+                          ))}
+                          <span className={`font-semibold text-sm ${paid === 100 ? "text-emerald-600" : "text-slate-800"}`}>입금완료 {paid}%</span>
                         </>
                       );
                     })()}
