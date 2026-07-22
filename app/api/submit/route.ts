@@ -98,6 +98,8 @@ function toRows(formState: FormState): string[][] {
     String(repItem?.subtotal ?? 0),
     groupId, '', '',
     rep.isYoungUCM ? 'Y' : '',
+    rep.guardianName ?? '',                        // S 보호자명
+    rep.guardianPhone ?? '',                       // T 보호자연락처
   ]);
 
   // 일행 — 각자 실제 회비
@@ -111,19 +113,20 @@ function toRows(formState: FormState): string[][] {
       c.lodging === 'LODGING' ? '숙박' : '비숙박',
       '', String(item?.subtotal ?? 0), groupId, '', '',
       c.isYoungUCM ? 'Y' : '',
+      c.guardianName ?? '',                        // S 보호자명
+      c.guardianPhone ?? '',                       // T 보호자연락처
     ]);
   });
 
   // 다자녀 할인은 별도 '할인' 행으로 기록한다.
-  //  → 구성원 각자의 금액은 실제 회비 그대로 유지되고(가격표·고객화면과 일치),
-  //    그룹 합계(행 합)는 할인이 반영되어 고객 화면 총액과 정확히 일치한다.
   if (summary.multiChildDiscountTotal > 0) {
     rows.push([
       groupId, now, appType, '할인',
       `다자녀 할인 ${Math.round(summary.multiChildRate * 100)}%`, '', '', '',
-      '', '', '', '', '',                          // 성별·등록유형·참석날짜·숙박·가족실
-      String(-summary.multiChildDiscountTotal),   // N 금액 (음수)
+      '', '', '', '', '',
+      String(-summary.multiChildDiscountTotal),
       groupId, '', '', '',
+      '', '',                                      // 보호자명, 보호자연락처 (해당 없음)
     ]);
   }
 

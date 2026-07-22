@@ -29,6 +29,8 @@ interface Row {
   확정: string; // '확정' | ''
   입금확인: string; // '확인' | ''
   성별: string;    // '남' | '여' | ''
+  보호자명?: string;
+  보호자연락처?: string;
 }
 
 interface Group {
@@ -694,7 +696,12 @@ function GroupCard({
                     </span>
                   </td>
                   <td className="px-4 py-2 font-medium text-slate-800">
-                    {row.이름}
+                    <div>{row.이름}</div>
+                    {(row.보호자명 || row.보호자연락처) && (
+                      <div className="text-[10px] text-amber-600 leading-tight mt-0.5">
+                        👶 {row.보호자명} {row.보호자연락처}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-2 text-center">
                     {row.성별 ? (
@@ -1638,10 +1645,10 @@ const EXCEL_DEPT_ORDER = [
   "대학부(UCM)", "중고등부(YCM)", "초등부(조이랜드)",
   "유치부(40개월~미취학)", "베이비(13개월~39개월)", "베이비(~12개월)",
 ];
-const EXCEL_HEADERS = ["신청번호","신청일시","신청유형","구분","이름","성별","연락처","소속","셀번호","등록유형","참석날짜","숙박","가족실","금액","확정","입금확인"];
+const EXCEL_HEADERS = ["신청번호","신청일시","신청유형","구분","이름","성별","연락처","소속","셀번호","등록유형","참석날짜","숙박","가족실","금액","확정","입금확인","보호자명","보호자연락처"];
 
 function rowToArr(r: Row): (string | number)[] {
-  return [r.groupId, r.신청일시, r.신청유형, r.구분, r.이름, r.성별 ?? "", r.연락처, r.소속, r.셀번호, r.등록유형, r.참석날짜, r.숙박, r.가족실, Number(r.금액) || r.금액, r.확정, r.입금확인];
+  return [r.groupId, r.신청일시, r.신청유형, r.구분, r.이름, r.성별 ?? "", r.연락처, r.소속, r.셀번호, r.등록유형, r.참석날짜, r.숙박, r.가족실, Number(r.금액) || r.금액, r.확정, r.입금확인, r.보호자명 ?? "", r.보호자연락처 ?? ""];
 }
 
 function exportExcel(rows: Row[]) {

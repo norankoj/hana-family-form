@@ -1,7 +1,7 @@
 'use client';
 import { useState } from 'react';
 import type { AttendeeForm, RepresentativeForm } from '@/lib/types';
-import { DEPARTMENT_OPTIONS } from '@/lib/types';
+import { DEPARTMENT_OPTIONS, needsGuardian } from '@/lib/types';
 import { DEPT_MAP, LODGING_FIXED_DEPTS, getRegistrationType, DAILY_DATE_OPTIONS } from '@/config/pricing';
 import Button from '@/components/ui/Button';
 import FieldGroup from '@/components/ui/FieldGroup';
@@ -11,6 +11,7 @@ import CustomSelect from '@/components/ui/CustomSelect';
 import GroupedSelect from '@/components/ui/GroupedSelect';
 import PriceTable, { type PriceHighlight } from '@/components/ui/PriceTable';
 import { getCellGroups } from '@/lib/cellData';
+import { formatPhone } from '@/lib/calculations';
 
 interface Step3Props {
   representative: RepresentativeForm;
@@ -38,13 +39,24 @@ function CompanionCard({
   onChange,
   onRemove,
   showError,
+  representative,
 }: {
   companion: AttendeeForm;
   index: number;
   onChange: (data: AttendeeForm) => void;
   onRemove: () => void;
   showError: boolean;
+  representative: RepresentativeForm;
 }) {
+  const [sameAsRep, setSameAsRep] = useState(false);
+
+  function handleSameAsRep(checked: boolean) {
+    setSameAsRep(checked);
+    if (checked) {
+      onChange({ ...companion, guardianName: representative.name, guardianPhone: representative.phone });
+    }
+  }
+
   const dept = DEPT_MAP[companion.department as string];
   const isLodgingFixed = dept ? LODGING_FIXED_DEPTS.includes(dept) : false;
   const autoRegType = getRegistrationType(new Date());
@@ -134,6 +146,59 @@ function CompanionCard({
             onChange={(v) => update('cellGroup', v)}
           />
         </FieldGroup>
+      )}
+
+      {/* 보호자 정보 (조이코너·조이베이비) */}
+      {needsGuardian(companion.department as string) && (
+        <>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 leading-relaxed">
+            👶 아이 명찰 인쇄 및 응급 연락에 사용됩니다. 보호자 정보를 입력해 주세요.
+          </div>
+          <label className="flex items-center gap-2.5 cursor-pointer rounded-xl border border-slate-200 bg-white px-4 py-3">
+            <input
+              type="checkbox"
+              checked={sameAsRep}
+              onChange={(e) => handleSameAsRep(e.target.checked)}
+              className="h-4 w-4 accent-blue-500 shrink-0"
+            />
+            <span className="text-sm font-medium text-slate-700">대표자와 동일</span>
+            {sameAsRep && (
+              <span className="text-xs text-slate-400 ml-1">({representative.name} / {representative.phone})</span>
+            )}
+          </label>
+          {!sameAsRep && (
+            <>
+              <FieldGroup
+                label="보호자 이름"
+                required
+                error={showError && !companion.guardianName?.trim() ? '보호자 이름을 입력해 주세요.' : undefined}
+              >
+                <input
+                  className="form-input"
+                  type="text"
+                  placeholder="홍길순"
+                  value={companion.guardianName ?? ''}
+                  onChange={(e) => update('guardianName', e.target.value)}
+                />
+              </FieldGroup>
+              <FieldGroup
+                label="보호자 연락처"
+                required
+                error={showError && !companion.guardianPhone?.replace(/\D/g, '') ? '보호자 연락처를 입력해 주세요.' : undefined}
+              >
+                <input
+                  className="form-input"
+                  type="tel"
+                  inputMode="numeric"
+                  placeholder="010-0000-0000"
+                  value={companion.guardianPhone ?? ''}
+                  onChange={(e) => update('guardianPhone', formatPhone(e.target.value))}
+                  maxLength={13}
+                />
+              </FieldGroup>
+            </>
+          )}
+        </>
       )}
 
       {/* 등록 유형 */}
@@ -231,7 +296,8 @@ export default function Step3Companions({
         c.name.trim() &&
         c.gender &&
         c.department &&
-        (c.registrationType !== 'DAILY' || c.dailyDate),
+        (c.registrationType !== 'DAILY' || c.dailyDate) &&
+        (!needsGuardian(c.department as string) || (c.guardianName?.trim() && c.guardianPhone?.replace(/\D/g, ''))),
     );
     if (allValid) onNext();
   }
@@ -284,6 +350,7 @@ export default function Step3Companions({
               onChange={(data) => updateCompanion(i, data)}
               onRemove={() => removeCompanion(i)}
               showError={showErrors}
+              representative={representative}
             />
           ))}
         </div>

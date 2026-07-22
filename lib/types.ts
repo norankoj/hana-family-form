@@ -13,6 +13,8 @@ export interface AttendeeForm {
   lodging: LodgingType;
   isRepresentative: boolean;
   isYoungUCM?: boolean; // UCM 중 2007년생 이하 → 다자녀 할인 자녀로 카운트
+  guardianName?: string;   // 유치부·베이비: 명찰·응급연락용 보호자명
+  guardianPhone?: string;  // 유치부·베이비: 보호자 연락처
 }
 
 export interface RepresentativeForm {
@@ -26,6 +28,17 @@ export interface RepresentativeForm {
   lodging: LodgingType;
   wantsFamilyRoom: boolean;   // 가족실 희망 (숙박인 경우만)
   isYoungUCM?: boolean;       // UCM 중 2007년생 이하 → 다자녀 할인 자녀로 카운트
+  guardianName?: string;   // 유치부·베이비: 명찰·응급연락용 보호자명
+  guardianPhone?: string;  // 유치부·베이비: 보호자 연락처
+}
+
+// 보호자 정보가 필요한 부서 (조이코너·조이베이비)
+export const GUARDIAN_DEPTS = new Set([
+  '유치부(40개월~미취학)',
+  '베이비(13개월~39개월)',
+]);
+export function needsGuardian(dept: string): boolean {
+  return GUARDIAN_DEPTS.has(dept);
 }
 
 export interface FormState {

@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import type { RepresentativeForm, ApplicationType } from "@/lib/types";
-import { DEPARTMENT_OPTIONS } from "@/lib/types";
+import { DEPARTMENT_OPTIONS, needsGuardian } from "@/lib/types";
 import {
   DEPT_MAP,
   LODGING_FIXED_DEPTS,
@@ -30,6 +30,8 @@ interface Errors {
   gender?: string;
   department?: string;
   dailyDate?: string;
+  guardianName?: string;
+  guardianPhone?: string;
 }
 
 function validate(data: RepresentativeForm): Errors {
@@ -42,6 +44,10 @@ function validate(data: RepresentativeForm): Errors {
   if (!data.department) errors.department = "소속을 선택해 주세요.";
   if (data.registrationType === "DAILY" && !data.dailyDate) {
     errors.dailyDate = "참석 날짜를 선택해 주세요.";
+  }
+  if (needsGuardian(data.department as string)) {
+    if (!data.guardianName?.trim()) errors.guardianName = "보호자 이름을 입력해 주세요.";
+    if (!data.guardianPhone?.replace(/\D/g, "")) errors.guardianPhone = "보호자 연락처를 입력해 주세요.";
   }
   return errors;
 }
@@ -195,6 +201,35 @@ export default function Step2Info({
             onChange={(v) => update("cellGroup", v)}
           />
         </FieldGroup>
+      )}
+
+      {/* 보호자 정보 (조이코너·조이베이비) */}
+      {needsGuardian(value.department as string) && (
+        <>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 leading-relaxed">
+            👶 아이 명찰 인쇄 및 응급 연락에 사용됩니다. 보호자 정보를 입력해 주세요.
+          </div>
+          <FieldGroup label="보호자 이름" required error={touched ? errors.guardianName : undefined}>
+            <input
+              className="form-input"
+              type="text"
+              placeholder="홍길순"
+              value={value.guardianName ?? ""}
+              onChange={(e) => update("guardianName", e.target.value)}
+            />
+          </FieldGroup>
+          <FieldGroup label="보호자 연락처" required error={touched ? errors.guardianPhone : undefined}>
+            <input
+              className="form-input"
+              type="tel"
+              inputMode="numeric"
+              placeholder="010-0000-0000"
+              value={value.guardianPhone ?? ""}
+              onChange={(e) => update("guardianPhone", formatPhone(e.target.value))}
+              maxLength={13}
+            />
+          </FieldGroup>
+        </>
       )}
 
       {/* 등록 유형 */}
