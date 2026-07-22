@@ -36,6 +36,7 @@ export interface RepresentativeForm {
 export const GUARDIAN_DEPTS = new Set([
   '유치부(40개월~미취학)',
   '베이비(13개월~39개월)',
+  '베이비(~12개월)',
 ]);
 export function needsGuardian(dept: string): boolean {
   return GUARDIAN_DEPTS.has(dept);
