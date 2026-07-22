@@ -1657,9 +1657,17 @@ function exportExcel(rows: Row[]) {
   for (const dept of EXCEL_DEPT_ORDER) {
     const deptRows = rows.filter((r) => r.소속 === dept && r.구분 !== "할인");
     if (deptRows.length === 0) continue;
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([EXCEL_HEADERS, ...deptRows.map(rowToArr)]), dept.slice(0, 31));
+    const lodging    = deptRows.filter((r) => r.숙박 === "숙박");
+    const nonLodging = deptRows.filter((r) => r.숙박 !== "숙박");
+    if (lodging.length > 0)
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([EXCEL_HEADERS, ...lodging.map(rowToArr)]),    `${dept}(숙박)`.slice(0, 31));
+    if (nonLodging.length > 0)
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([EXCEL_HEADERS, ...nonLodging.map(rowToArr)]), `${dept}(비숙박)`.slice(0, 31));
   }
-  XLSX.writeFile(wb, `하나가족수양회_신청현황_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const stamp = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
+  XLSX.writeFile(wb, `하나가족수양회_신청현황_${stamp}.xlsx`);
 }
 
 // ── 메인 대시보드 ──────────────────────────────────────────────────────────
