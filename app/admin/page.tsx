@@ -50,6 +50,27 @@ function krw(n: number) {
   return n.toLocaleString("ko-KR") + "원";
 }
 
+// "2026. 7. 2. 오전 10:00:00" → timestamp (정렬용)
+function parseDateStr(s: string): number {
+  const m = s.match(/(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(오전|오후)\s*(\d{1,2}):(\d{2})/);
+  if (!m) return 0;
+  let hour = parseInt(m[5]);
+  if (m[4] === "오후" && hour !== 12) hour += 12;
+  if (m[4] === "오전" && hour === 12) hour = 0;
+  return new Date(+m[1], +m[2] - 1, +m[3], hour, +m[6]).getTime();
+}
+
+// "2026. 7. 2. 오전 10:05:00" → "07/02 10:05" (표시용)
+function formatDateStr(s: string): string {
+  const m = s.match(/(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(오전|오후)\s*(\d{1,2}):(\d{2})/);
+  if (!m) return s;
+  let hour = parseInt(m[5]);
+  if (m[4] === "오후" && hour !== 12) hour += 12;
+  if (m[4] === "오전" && hour === 12) hour = 0;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(+m[2])}/${pad(+m[3])} ${pad(hour)}:${m[6]}`;
+}
+
 // 헤더로 비밀번호 전송 (URL 노출 방지)
 function authHeaders(password: string): HeadersInit {
   return { "x-admin-password": password };
@@ -399,7 +420,7 @@ function IndividualTable({
         case "amount":
           return (a.total - b.total) * m;
         case "date":
-          return a.신청일시.localeCompare(b.신청일시) * m;
+          return (parseDateStr(a.신청일시) - parseDateStr(b.신청일시)) * m;
         case "paid":
           return ((a.paid ? 1 : 0) - (b.paid ? 1 : 0)) * m;
         case "confirmed":
@@ -503,7 +524,7 @@ function IndividualTable({
                     {krw(g.total)}
                   </td>
                   <td className="px-3 py-2.5 text-center text-xs text-slate-400 whitespace-nowrap">
-                    {rep.신청일시}
+                    {formatDateStr(rep.신청일시)}
                   </td>
                   <td className="px-3 py-2.5 text-center">
                     {g.paid ? (
@@ -788,7 +809,7 @@ function GroupTable({
         case "amount":
           return (a.total - b.total) * m;
         case "date":
-          return a.신청일시.localeCompare(b.신청일시) * m;
+          return (parseDateStr(a.신청일시) - parseDateStr(b.신청일시)) * m;
         default:
           return 0;
       }
