@@ -50,23 +50,25 @@ function krw(n: number) {
   return n.toLocaleString("ko-KR") + "원";
 }
 
-// "2026. 7. 2. 오전 10:00:00" → timestamp (정렬용)
+// "2026. 7. 2. 오전 10:00:00" 또는 "2026. 6. 28. AM 11:41:53" → timestamp (정렬용)
 function parseDateStr(s: string): number {
-  const m = s.match(/(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(오전|오후)\s*(\d{1,2}):(\d{2})/);
+  const m = s.match(/(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(오전|오후|AM|PM)\s*(\d{1,2}):(\d{2})/i);
   if (!m) return 0;
   let hour = parseInt(m[5]);
-  if (m[4] === "오후" && hour !== 12) hour += 12;
-  if (m[4] === "오전" && hour === 12) hour = 0;
+  const ap = m[4].toUpperCase();
+  if ((ap === "오후" || ap === "PM") && hour !== 12) hour += 12;
+  if ((ap === "오전" || ap === "AM") && hour === 12) hour = 0;
   return new Date(+m[1], +m[2] - 1, +m[3], hour, +m[6]).getTime();
 }
 
-// "2026. 7. 2. 오전 10:05:00" → "07/02 10:05" (표시용)
+// → "07/02 10:05" (표시용)
 function formatDateStr(s: string): string {
-  const m = s.match(/(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(오전|오후)\s*(\d{1,2}):(\d{2})/);
+  const m = s.match(/(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(오전|오후|AM|PM)\s*(\d{1,2}):(\d{2})/i);
   if (!m) return s;
   let hour = parseInt(m[5]);
-  if (m[4] === "오후" && hour !== 12) hour += 12;
-  if (m[4] === "오전" && hour === 12) hour = 0;
+  const ap = m[4].toUpperCase();
+  if ((ap === "오후" || ap === "PM") && hour !== 12) hour += 12;
+  if ((ap === "오전" || ap === "AM") && hour === 12) hour = 0;
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${pad(+m[2])}/${pad(+m[3])} ${pad(hour)}:${m[6]}`;
 }
