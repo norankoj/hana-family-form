@@ -77,7 +77,9 @@ function newGroupId(): string {
 }
 
 function toRows(formState: FormState): string[][] {
-  const now = new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' });
+  const _d = new Date(new Date().getTime() + 9 * 60 * 60 * 1000); // UTC+9 (KST)
+  const _p = (n: number) => String(n).padStart(2, '0');
+  const now = `${_d.getUTCFullYear()}-${_p(_d.getUTCMonth()+1)}-${_p(_d.getUTCDate())} ${_p(_d.getUTCHours())}:${_p(_d.getUTCMinutes())}`;
   const groupId = newGroupId();
   const appType = formState.applicationType === 'GROUP' ? '단체' : '개인';
   const summary = calcSummary(formState.representative, formState.companions);
